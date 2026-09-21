@@ -1,18 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 
-export interface FallingItem {
+export interface CardItem {
   id: string;
   url: string;
   name: string;
   type: 'image' | 'video' | 'file';
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  rot: number;
-  vRot: number;
-  scale: number;
-  opacity: number;
+  startX: number;
+  startY: number;
+  driftX: number;
+  rotStart: number;
+  rotEnd: number;
 }
 
 interface DropZoneProps {
@@ -20,14 +17,23 @@ interface DropZoneProps {
 }
 
 const styles = {
-  container: {
-    position: 'absolute' as const,
-    inset: 0,
+  wrapper: {
+    position: 'relative' as const,
     width: '100%',
     height: '100%',
     overflow: 'hidden',
   },
-  itemCard: {
+  nativeInput: {
+    position: 'absolute' as const,
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0,
+    cursor: 'pointer',
+    zIndex: 4,
+    WebkitTapHighlightColor: 'transparent',
+  },
+  card: {
     position: 'absolute' as const,
     width: '200px',
     height: '200px',
@@ -43,7 +49,6 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     willChange: 'transform, opacity',
-    transformOrigin: 'center center',
   },
   image: {
     width: '100%',
@@ -87,184 +92,144 @@ const styles = {
 };
 
 export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
-  const [items, setItems] = useState<FallingItem[]>([]);
-  const itemsRef = useRef<FallingItem[]>([]);
-  itemsRef.current = items;
+  const [cards, setCards] = useState<CardItem[]>([]);
 
-  const spawnItem = (file: File | Blob, clientX: number, clientY: number, fileName = 'file') => {
-    const url = URL.createObjectURL(file);
-    const mime = file.type || '';
-
-    const isVideo = mime.startsWith('video/') || fileName.match(/\.(mp4|mov|webm)/i);
-    const isImage = mime.startsWith('image/') || fileName.match(/\.(jpg|jpeg|png|gif|webp|heic)/i);
-
-    const itemType: 'image' | 'video' | 'file' = isVideo ? 'video' : isImage ? 'image' : 'file';
-
-    const cardWidth = 200;
-    const cardHeight = 200;
-
-    const posX = clientX > 0 ? clientX : window.innerWidth / 2;
-    const posY = clientY > 0 ? clientY : window.innerHeight / 2 - 40;
-
-    const clampedX = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, posX - cardWidth / 2));
-    const clampedY = Math.max(70, Math.min(window.innerHeight - cardHeight - 110, posY - cardHeight / 2));
-
-    const newItem: FallingItem = {
-      id: Math.random().toString(),
-      url,
-      name: fileName,
-      type: itemType,
-      x: clampedX,
-      y: clampedY,
-      vx: (Math.random() - 0.5) * 1.4,
-      vy: -1.5,
-      rot: (Math.random() - 0.5) * 4,
-      vRot: (Math.random() - 0.5) * 0.25,
-      scale: 0.65,
-      opacity: 1.0,
-    };
-
-    setItems((prev) => [...prev, newItem]);
-  };
-
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy';
-    }
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const clientX = e.clientX || 0;
-    const clientY = e.clientY || 0;
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      Array.from(e.dataTransfer.files).forEach((file) => {
-        spawnItem(file, clientX, clientY, file.name);
-      });
-      return;
-    }
-
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      for (let i = 0; i < e.dataTransfer.items.length; i++) {
-        const item = e.dataTransfer.items[i];
-        const file = item.getAsFile();
-        if (file) {
-          spawnItem(file, clientX, clientY, file.name);
-          return;
-        }
-      }
-    }
-  };
-
-  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handleFiles = (files: FileList | null, originX?: number, originY?: number) => {
     if (!files || files.length === 0) return;
 
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2 - 30;
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
 
-    Array.from(files).forEach((file) => {
-      spawnItem(file, centerX, centerY, file.name);
+    const defaultX = originX && originX > 0 ? originX : screenW / 2;
+    const defaultY = originY && originY > 0 ? originY : screenH / 2 - 30;
+
+    const newCards: CardItem[] = Array.from(files).map((file) => {
+      const url = URL.createObjectURL(file);
+      const mime = file.type || '';
+
+      const isVideo = mime.startsWith('video/') || file.name.match(/\.(mp4|mov|webm)/i);
+      const isImage = mime.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp|heic)/i);
+      const itemType: 'image' | 'video' | 'file' = isVideo ? 'video' : isImage ? 'image' : 'file';
+
+      const cardW = 200;
+      const cardH = 200;
+
+      const clampedX = Math.max(16, Math.min(screenW - cardW - 16, defaultX - cardW / 2));
+      const clampedY = Math.max(80, Math.min(screenH - cardH - 120, defaultY - cardH / 2));
+
+      const drift = (Math.random() - 0.5) * 50;
+      const rStart = (Math.random() - 0.5) * 6;
+      const rEnd = rStart + (Math.random() - 0.5) * 12;
+
+      return {
+        id: Math.random().toString(),
+        url,
+        name: file.name,
+        type: itemType,
+        startX: clampedX,
+        startY: clampedY,
+        driftX: drift,
+        rotStart: rStart,
+        rotEnd: rEnd,
+      };
     });
 
-    e.target.value = '';
+    setCards((prev) => [...prev, ...newCards]);
   };
 
-  useEffect(() => {
-    let rafId: number;
-
-    const updatePhysics = () => {
-      if (itemsRef.current.length > 0) {
-        setItems((prevItems) => {
-          return prevItems
-            .map((item) => {
-              const nextScale = Math.min(1.0, item.scale + 0.04);
-              const nextVy = item.vy + 0.42;
-              const nextY = item.y + nextVy;
-              const nextX = item.x + item.vx;
-              const nextRot = item.rot + item.vRot;
-
-              return {
-                ...item,
-                x: nextX,
-                y: nextY,
-                vy: nextVy,
-                rot: nextRot,
-                scale: nextScale,
-              };
-            })
-            .filter((item) => {
-              const isAlive = item.y < window.innerHeight + 300;
-              if (!isAlive) {
-                URL.revokeObjectURL(item.url);
-              }
-              return isAlive;
-            });
-        });
-      }
-
-      rafId = requestAnimationFrame(updatePhysics);
-    };
-
-    rafId = requestAnimationFrame(updatePhysics);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
+  const removeCard = (id: string, url: string) => {
+    URL.revokeObjectURL(url);
+    setCards((prev) => prev.filter((c) => c.id !== id));
+  };
 
   return (
-    <div
-      style={styles.container}
-      onDragOver={onDragOver}
-      onDragEnter={onDragOver}
-      onDrop={onDrop}
-    >
+    <div style={styles.wrapper}>
+      <style>{`
+        @keyframes floatAndFall {
+          0% {
+            opacity: 0;
+            transform: translate3d(var(--x), var(--y), 0) scale(0.65) rotate(var(--r-start));
+          }
+          14% {
+            opacity: 1;
+            transform: translate3d(var(--x), var(--y), 0) scale(1.02) rotate(var(--r-start));
+          }
+          20% {
+            opacity: 1;
+            transform: translate3d(var(--x), var(--y), 0) scale(1.0) rotate(var(--r-start));
+          }
+          45% {
+            opacity: 1;
+            transform: translate3d(var(--x), calc(var(--y) - 8px), 0) scale(1.0) rotate(var(--r-start));
+          }
+          100% {
+            opacity: 1;
+            transform: translate3d(calc(var(--x) + var(--drift)), calc(100vh + 300px), 0) scale(1.0) rotate(var(--r-end));
+          }
+        }
+      `}</style>
+
       <input
-        id="file-upload"
         type="file"
-        accept="image/*,video/*,*/*"
         multiple
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '1px',
-          height: '1px',
-          opacity: 0,
-          pointerEvents: 'none',
-          zIndex: -1,
+        accept="image/*,video/*,*/*"
+        style={styles.nativeInput}
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = '';
         }}
-        onChange={onInputChange}
+        onDrop={(e) => {
+          handleFiles(e.dataTransfer.files, e.clientX, e.clientY);
+        }}
       />
 
       {children}
 
-      {items.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            ...styles.itemCard,
-            transform: `translate3d(${item.x}px, ${item.y}px, 0) rotate(${item.rot}deg) scale(${item.scale})`,
-            opacity: item.opacity,
-          }}
-        >
-          {item.type === 'image' && (
-            <img src={item.url} alt={item.name} style={styles.image} />
-          )}
-          {item.type === 'video' && (
-            <video src={item.url} autoPlay muted loop playsInline style={styles.video} />
-          )}
-          {item.type === 'file' && (
-            <div style={styles.fileBox}>
-              <div style={styles.fileIcon}>📄</div>
-              <span style={styles.fileName}>{item.name}</span>
-            </div>
-          )}
-        </div>
-      ))}
+      {cards.map((card) => {
+        const customVars = {
+          '--x': `${card.startX}px`,
+          '--y': `${card.startY}px`,
+          '--drift': `${card.driftX}px`,
+          '--r-start': `${card.rotStart}deg`,
+          '--r-end': `${card.rotEnd}deg`,
+        } as React.CSSProperties;
+
+        return (
+          <div
+            key={card.id}
+            style={{
+              ...styles.card,
+              ...customVars,
+              top: 0,
+              left: 0,
+              animation: 'floatAndFall 2.4s cubic-bezier(0.25, 0.1, 0.25, 1) forwards',
+            }}
+            onAnimationEnd={() => removeCard(card.id, card.url)}
+          >
+            {card.type === 'image' && (
+              <img src={card.url} alt={card.name} style={styles.image} />
+            )}
+
+            {card.type === 'video' && (
+              <video
+                src={card.url}
+                autoPlay
+                muted
+                loop
+                playsInline
+                style={styles.video}
+              />
+            )}
+
+            {card.type === 'file' && (
+              <div style={styles.fileBox}>
+                <div style={styles.fileIcon}>📄</div>
+                <span style={styles.fileName}>{card.name}</span>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
