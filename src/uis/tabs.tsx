@@ -27,7 +27,7 @@ const styles = {
     pointerEvents: 'auto' as const,
     width: '152px',
     height: '66px',
-    background: 'rgba(255, 255, 255, 0.25)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
   },
   tabItem: {
     position: 'relative' as const,
@@ -59,11 +59,14 @@ const styles = {
     width: '26px',
     height: '26px',
     objectFit: 'contain' as const,
+    filter: 'brightness(0)',
   },
   avatarSkeleton: {
     width: '26px',
     height: '26px',
     borderRadius: '50%',
+    border: '1px solid rgba(0, 0, 0, 0.14)',
+    boxSizing: 'border-box' as const,
   },
   searchButton: {
     position: 'relative' as const,
@@ -77,8 +80,8 @@ const styles = {
     pointerEvents: 'auto' as const,
     outline: 'none',
     padding: 0,
-    background: 'rgba(255, 255, 255, 0.25)',
-    border: 'none',
+    background: 'none',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
   }
 };
 
@@ -195,7 +198,7 @@ export const Tabs: React.FC = () => {
             alt="Home"
             style={{
               ...styles.icon,
-              opacity: activeIndex === 0 ? 1 : 0.45,
+              opacity: activeIndex === 0 ? 1 : 0.35,
               transition: 'opacity 0.2s ease',
             }}
           />
@@ -210,7 +213,7 @@ export const Tabs: React.FC = () => {
             className="shimmer"
             style={{
               ...styles.avatarSkeleton,
-              opacity: activeIndex === 1 ? 1 : 0.45,
+              opacity: activeIndex === 1 ? 1 : 0.35,
               transition: 'opacity 0.2s ease',
             }}
           />
