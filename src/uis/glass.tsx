@@ -115,9 +115,10 @@ void main() {
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
   color += vec3(specHighlight * uSpecular * uRimGlow);
 
-  float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
+  float edgeLine = 1.0 - smoothstep(0.0, 1.35, distFromEdge);
   if (uIsPill > 0.5) {
-    color = mix(color, vec3(0.0), edgeLine * 0.30);
+    vec3 grayContour = vec3(0.52, 0.52, 0.55);
+    color = mix(color, grayContour, edgeLine * 0.36);
   } else {
     color += vec3(edgeLine * uSpecular * 0.34);
   }
@@ -191,9 +192,9 @@ export const Glass: React.FC<GlassProps> = ({
       uGlassCenter: { value: initialCenter },
       uGlassSize: { value: initialSize },
       uRadius: { value: radius },
-      uThickness: { value: isPill ? 16.0 : 24.0 },
-      uBezel: { value: isPill ? 14.0 : 20.0 },
-      uIOR: { value: isPill ? 2.15 : 2.70 },
+      uThickness: { value: isPill ? 22.0 : 24.0 },
+      uBezel: { value: isPill ? 17.0 : 20.0 },
+      uIOR: { value: isPill ? 2.35 : 2.70 },
       uBlur: { value: isPill ? 1.0 : 2.0 },
       uSpecular: { value: 0.52 },
       uRimGlow: { value: 0.03 },
