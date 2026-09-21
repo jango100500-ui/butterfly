@@ -25,7 +25,7 @@ uniform float uSpecular;
 uniform float uRimGlow;
 uniform float uTint;
 uniform float uShadow;
-uniform float uDarkContour;
+uniform float uIsPill;
 uniform sampler2D uBgTex;
 uniform float uBgAspect;
 
@@ -85,7 +85,7 @@ void main() {
 
   if (sd > 0.0) {
     float shadowFalloff = exp(-sd * sd / 350.0);
-    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.25);
+    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.4);
     return;
   }
 
@@ -114,34 +114,28 @@ void main() {
   vec2 screenUV = screenPx / uResolution;
 
   vec3 color = sampleBgBlurred(screenUV + offset, uBlur);
-  float edgeLine = 1.0 - smoothstep(0.0, 1.2, distFromEdge);
 
-  if (uDarkContour > 0.5) {
-    // Темная капля: затемняем края
-    color = mix(color, vec3(0.0), edgeLine * 0.15);
+  vec2 lightDir = normalize(vec2(0.5, -0.7));
+  float rimDot = abs(dot(grad, lightDir));
+  float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.4, distFromEdge);
+  float specHighlight = pow(rimDot * rimFalloff, 1.5);
+  color += vec3(specHighlight * uSpecular * uRimGlow);
+
+  float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
+
+  if (uIsPill > 0.5) {
+    // Темный контур для летящей пилюли
+    color = mix(color, vec3(0.0), edgeLine * 0.25);
   } else {
-    // Светлое стекло (таббар/кнопка)
-    vec2 lightDir = normalize(vec2(0.5, -0.7));
-    float rimDot = abs(dot(grad, lightDir));
-    float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.4, distFromEdge);
-    float specHighlight = pow(rimDot * rimFalloff, 1.5);
-    
-    color += vec3(specHighlight * uSpecular * uRimGlow);
-    color += vec3(edgeLine * uSpecular * 0.45);
-    
-    float innerRim = smoothstep(0.3, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.0, distFromEdge));
-    color += vec3(innerRim * 0.08 * uSpecular);
+    // Светлый контур для таббара и кнопки
+    color += vec3(edgeLine * uSpecular * 0.34);
   }
+
+  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
+  color += vec3(innerRim * 0.055 * uSpecular);
 
   color = mix(color, vec3(1.0), uTint);
-  float alpha = smoothstep(0.0, 1.0, distFromEdge);
-
-  // ГЕНИАЛЬНЫЙ ТРЮК: Делаем центр капли прозрачным, чтобы HTML-иконки просвечивали!
-  // Оставляем только края, которые преломляют всё под собой.
-  if (uDarkContour > 0.5) {
-    float centerFade = 1.0 - smoothstep(bezel * 0.2, bezel * 1.0, distFromEdge);
-    alpha *= centerFade;
-  }
+  float alpha = smoothstep(0.0, 1.5, distFromEdge);
 
   gl_FragColor = vec4(color, alpha);
 }
@@ -150,10 +144,10 @@ void main() {
 interface GlassProps {
   radius?: number;
   noShadow?: boolean;
-  variant?: 'light' | 'dark';
+  isPill?: boolean;
 }
 
-export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, variant = 'light' }) => {
+export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, isPill = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -188,24 +182,21 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, var
     );
     defaultTexture.needsUpdate = true;
 
-    const scale = Math.min(baseW, baseH) / 280;
-    const scaledBezel = Math.max(6.0, 42.0 * scale);
-    const scaledThickness = Math.max(8.0, 44.0 * scale);
-
+    // ТОЧНЫЕ параметры с твоего скриншота, без масштабирования
     const uniforms = {
       uResolution: { value: new THREE.Vector2(totalW, totalH) },
       uGlassCenter: { value: new THREE.Vector2(totalW / 2, totalH / 2) },
       uGlassSize: { value: new THREE.Vector2(baseW, baseH) },
       uRadius: { value: radius },
-      uBezel: { value: scaledBezel },
-      uThickness: { value: scaledThickness },
-      uIOR: { value: 2.7 },
+      uThickness: { value: 62.0 },
+      uBezel: { value: 48.0 },
+      uIOR: { value: 2.70 },
       uBlur: { value: 2.0 },
       uSpecular: { value: 0.52 },
       uRimGlow: { value: 0.03 },
       uTint: { value: 0.07 },
-      uShadow: { value: noShadow ? 0.0 : 0.06 },
-      uDarkContour: { value: variant === 'dark' ? 1.0 : 0.0 },
+      uShadow: { value: noShadow ? 0.0 : 0.08 },
+      uIsPill: { value: isPill ? 1.0 : 0.0 },
       uBgTex: { value: defaultTexture },
       uBgAspect: { value: 1.0 },
     };
@@ -235,10 +226,6 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, var
           uniforms.uResolution.value.set(totalW, totalH);
           uniforms.uGlassCenter.value.set(totalW / 2, totalH / 2);
           uniforms.uGlassSize.value.set(baseW, baseH);
-
-          const curScale = Math.min(baseW, baseH) / 280;
-          uniforms.uBezel.value = Math.max(6.0, 42.0 * curScale);
-          uniforms.uThickness.value = Math.max(8.0, 44.0 * curScale);
         }
       }
       renderer.render(scene, camera);
@@ -253,7 +240,7 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, var
       material.dispose();
       defaultTexture.dispose();
     };
-  }, [radius, noShadow, variant]);
+  }, [radius, noShadow, isPill]);
 
   const margin = noShadow ? 0 : 20;
 
