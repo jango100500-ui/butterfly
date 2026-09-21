@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 
 export interface FallingItem {
   id: string;
@@ -23,7 +22,8 @@ interface DropZoneProps {
 
 const styles = {
   container: {
-    position: 'relative' as const,
+    position: 'absolute' as const,
+    inset: 0,
     width: '100%',
     height: '100%',
     overflow: 'hidden',
@@ -38,7 +38,7 @@ const styles = {
     border: '1.5px solid rgba(255, 255, 255, 0.95)',
     background: '#FFFFFF',
     pointerEvents: 'none' as const,
-    zIndex: 9999, // Гарантированно поверх всего, кроме таббара
+    zIndex: 5, // Летит ПОВЕРХ фона, но ПОД таббаром
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
@@ -94,94 +94,64 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
   const itemsRef = useRef<FallingItem[]>([]);
   itemsRef.current = items;
 
-  const spawnItemFromUrl = (url: string, name: string, mime: string, clientX: number, clientY: number) => {
-    const itemType: 'image' | 'video' | 'file' = mime.startsWith('video/')
-      ? 'video'
-      : mime.startsWith('image/') || url.match(/\.(jpeg|jpg|gif|png|webp)/i)
-      ? 'image'
-      : 'file';
+  const handleFiles = (files: FileList | null, clientX: number, clientY: number) => {
+    if (!files || files.length === 0) return;
 
-    const cardWidth = 180;
-    const cardHeight = 180;
+    const newItems: FallingItem[] = Array.from(files).map((file) => {
+      const url = URL.createObjectURL(file);
+      const mime = file.type;
+      
+      const itemType: 'image' | 'video' | 'file' = mime.startsWith('video/')
+        ? 'video'
+        : mime.startsWith('image/') ? 'image' : 'file';
 
-    const posX = clientX > 0 ? clientX : window.innerWidth / 2;
-    const posY = clientY > 0 ? clientY : window.innerHeight / 2 - 40;
+      const cardWidth = 180;
+      const cardHeight = 180;
 
-    const clampedX = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, posX - cardWidth / 2));
-    const clampedY = Math.max(70, Math.min(window.innerHeight - cardHeight - 110, posY - cardHeight / 2));
+      const posX = clientX > 0 ? clientX : window.innerWidth / 2;
+      const posY = clientY > 0 ? clientY : window.innerHeight / 2 - 40;
 
-    const newItem: FallingItem = {
-      id: Math.random().toString(),
-      url,
-      name,
-      type: itemType,
-      x: clampedX,
-      y: clampedY,
-      vx: (Math.random() - 0.5) * 1.2,
-      vy: -1.2,
-      rot: (Math.random() - 0.5) * 3,
-      vRot: (Math.random() - 0.5) * 0.25,
-      scale: 0.95,
-      opacity: 1.0,
-      hoverFrames: 60,
-    };
+      const clampedX = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, posX - cardWidth / 2));
+      const clampedY = Math.max(70, Math.min(window.innerHeight - cardHeight - 110, posY - cardHeight / 2));
 
-    setItems((prev) => [...prev, newItem]);
+      return {
+        id: Math.random().toString(),
+        url,
+        name: file.name,
+        type: itemType,
+        x: clampedX,
+        y: clampedY,
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: -1.2,
+        rot: (Math.random() - 0.5) * 3,
+        vRot: (Math.random() - 0.5) * 0.25,
+        scale: 0.95,
+        opacity: 0.0,
+        hoverFrames: 50, // Висит в воздухе ~0.8 секунды
+      };
+    });
+
+    setItems((prev) => [...prev, ...newItems]);
   };
 
-  const spawnItemFromFile = (file: File, clientX: number, clientY: number) => {
-    // Используем FileReader для надежности в Safari
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const url = e.target?.result as string;
-      if (url) spawnItemFromUrl(url, file.name, file.type, clientX, clientY);
-    };
-    reader.readAsDataURL(file);
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
   };
 
-  useEffect(() => {
-    const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.dataTransfer) {
-        e.dataTransfer.dropEffect = 'copy';
-      }
-    };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleFiles(e.dataTransfer.files, e.clientX, e.clientY);
+  };
 
-    const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const clientX = e.clientX || 0;
-      const clientY = e.clientY || 0;
-
-      if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
-        for (let i = 0; i < e.dataTransfer.items.length; i++) {
-          const item = e.dataTransfer.items[i];
-          if (item.kind === 'file') {
-            const file = item.getAsFile();
-            if (file) {
-              spawnItemFromFile(file, clientX, clientY);
-              return;
-            }
-          }
-        }
-      }
-
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        spawnItemFromFile(e.dataTransfer.files[0], clientX, clientY);
-        return;
-      }
-    };
-
-    window.addEventListener('dragover', handleDragOver, { passive: false });
-    window.addEventListener('drop', handleDrop, { passive: false });
-
-    return () => {
-      window.removeEventListener('dragover', handleDragOver);
-      window.removeEventListener('drop', handleDrop);
-    };
-  }, []);
+  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2 - 40;
+    handleFiles(e.target.files, centerX, centerY);
+    e.target.value = ''; // Сбрасываем инпут
+  };
 
   useEffect(() => {
     let rafId: number;
@@ -189,22 +159,24 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
     const updatePhysics = () => {
       if (itemsRef.current.length > 0) {
         setItems((prevItems) => {
-          const nextItems = prevItems
+          return prevItems
             .map((item) => {
-              if (item.hoverFrames > 0) {
-                const nextHover = item.hoverFrames - 1;
-                const nextY = item.y + item.vy * 0.12;
-                const nextRot = item.rot + item.vRot * 0.15;
+              // Плавное проявление
+              const nextOpacity = Math.min(1.0, item.opacity + 0.15);
 
+              // Парение в воздухе
+              if (item.hoverFrames > 0) {
                 return {
                   ...item,
-                  y: nextY,
-                  rot: nextRot,
-                  hoverFrames: nextHover,
+                  y: item.y + item.vy * 0.12,
+                  rot: item.rot + item.vRot * 0.15,
+                  opacity: nextOpacity,
+                  hoverFrames: item.hoverFrames - 1,
                 };
               }
 
-              const nextVy = item.vy + 0.52;
+              // Падение с гравитацией
+              const nextVy = item.vy + 0.55;
               const nextY = item.y + nextVy;
               const nextX = item.x + item.vx;
               const nextRot = item.rot + item.vRot;
@@ -215,11 +187,16 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
                 y: nextY,
                 vy: nextVy,
                 rot: nextRot,
+                opacity: nextOpacity,
               };
             })
-            .filter((item) => item.y < window.innerHeight + 260);
-
-          return nextItems;
+            .filter((item) => {
+              const isAlive = item.y < window.innerHeight + 200;
+              if (!isAlive) {
+                URL.revokeObjectURL(item.url); // Чистим память
+              }
+              return isAlive;
+            });
         });
       }
 
@@ -231,46 +208,47 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
   }, []);
 
   return (
-    <div style={styles.container}>
+    <div
+      style={styles.container}
+      onDragOver={onDragOver}
+      onDragEnter={onDragOver}
+      onDrop={onDrop}
+    >
+      {/* Нативный скрытый инпут. Работает как швейцарские часы на iOS */}
+      <input
+        id="file-upload"
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={onInputChange}
+      />
+
       {children}
 
-      {/* Рендерим летящие карточки в корень body, чтобы они гарантированно были поверх всего */}
-      {typeof document !== 'undefined' &&
-        createPortal(
-          items.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                ...styles.itemCard,
-                transform: `translate3d(${item.x}px, ${item.y}px, 0) rotate(${item.rot}deg) scale(${item.scale})`,
-                opacity: item.opacity,
-              }}
-            >
-              {item.type === 'image' && (
-                <img src={item.url} alt={item.name} style={styles.image} />
-              )}
-
-              {item.type === 'video' && (
-                <video
-                  src={item.url}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  style={styles.video}
-                />
-              )}
-
-              {item.type === 'file' && (
-                <div style={styles.fileBox}>
-                  <div style={styles.fileIcon}>📄</div>
-                  <span style={styles.fileName}>{item.name}</span>
-                </div>
-              )}
+      {/* Рендеринг падающих файлов */}
+      {items.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            ...styles.itemCard,
+            transform: `translate3d(${item.x}px, ${item.y}px, 0) rotate(${item.rot}deg) scale(${item.scale})`,
+            opacity: item.opacity,
+          }}
+        >
+          {item.type === 'image' && (
+            <img src={item.url} alt={item.name} style={styles.image} />
+          )}
+          {item.type === 'video' && (
+            <video src={item.url} autoPlay muted loop playsInline style={styles.video} />
+          )}
+          {item.type === 'file' && (
+            <div style={styles.fileBox}>
+              <div style={styles.fileIcon}>📄</div>
+              <span style={styles.fileName}>{item.name}</span>
             </div>
-          )),
-          document.body
-        )}
+          )}
+        </div>
+      ))}
     </div>
   );
 };
