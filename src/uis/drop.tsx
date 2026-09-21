@@ -13,6 +13,7 @@ export interface FallingItem {
   vRot: number;
   scale: number;
   opacity: number;
+  hoverFrames: number;
 }
 
 interface DropZoneProps {
@@ -30,10 +31,10 @@ const styles = {
     position: 'absolute' as const,
     width: '180px',
     maxHeight: '220px',
-    borderRadius: '20px',
+    borderRadius: '22px',
     overflow: 'hidden',
-    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06)',
-    border: '1.5px solid rgba(255, 255, 255, 0.9)',
+    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.18), 0 6px 16px rgba(0, 0, 0, 0.08)',
+    border: '1.5px solid rgba(255, 255, 255, 0.95)',
     background: '#FFFFFF',
     pointerEvents: 'none' as const,
     zIndex: 5,
@@ -42,6 +43,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     willChange: 'transform, opacity',
+    transformOrigin: 'center center',
   },
   image: {
     width: '100%',
@@ -75,14 +77,14 @@ const styles = {
     maxWidth: '140px',
   },
   fileIcon: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
+    width: '40px',
+    height: '40px',
+    borderRadius: '12px',
     background: '#F2F2F7',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '18px',
+    fontSize: '20px',
   }
 };
 
@@ -90,6 +92,43 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
   const [items, setItems] = useState<FallingItem[]>([]);
   const itemsRef = useRef<FallingItem[]>([]);
   itemsRef.current = items;
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const spawnItem = (file: File, clientX: number, clientY: number) => {
+    const url = URL.createObjectURL(file);
+    const mime = file.type;
+
+    const itemType: 'image' | 'video' | 'file' = mime.startsWith('video/')
+      ? 'video'
+      : mime.startsWith('image/')
+      ? 'image'
+      : 'file';
+
+    const cardWidth = 180;
+    const cardHeight = 180;
+
+    const clampedX = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, clientX - cardWidth / 2));
+    const clampedY = Math.max(70, Math.min(window.innerHeight - cardHeight - 110, clientY - cardHeight / 2));
+
+    const newItem: FallingItem = {
+      id: Math.random().toString(),
+      url,
+      name: file.name,
+      type: itemType,
+      x: clampedX,
+      y: clampedY,
+      vx: (Math.random() - 0.5) * 1.2,
+      vy: -1.2,
+      rot: (Math.random() - 0.5) * 3,
+      vRot: (Math.random() - 0.5) * 0.25,
+      scale: 0.9,
+      opacity: 0.0,
+      hoverFrames: 45,
+    };
+
+    setItems((prev) => [...prev, newItem]);
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -103,41 +142,18 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    const url = URL.createObjectURL(file);
-    const mime = file.type;
+    spawnItem(files[0], e.clientX, e.clientY);
+  };
 
-    const itemType: 'image' | 'video' | 'file' = mime.startsWith('video/')
-      ? 'video'
-      : mime.startsWith('image/')
-      ? 'image'
-      : 'file';
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const cardWidth = 180;
-    const cardHeight = 180;
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2 - 40;
+    spawnItem(files[0], centerX, centerY);
 
-    const dropX = e.clientX;
-    const dropY = e.clientY;
-
-    const clampedX = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, dropX - cardWidth / 2));
-    const clampedY = Math.max(70, Math.min(window.innerHeight - cardHeight - 110, dropY - cardHeight / 2));
-
-    const newItem: FallingItem = {
-      id: Math.random().toString(),
-      url,
-      name: file.name,
-      type: itemType,
-      x: clampedX,
-      y: clampedY,
-      vx: (Math.random() - 0.5) * 1.8,
-      vy: -2.8,
-      rot: (Math.random() - 0.5) * 4,
-      vRot: (Math.random() - 0.5) * 0.45,
-      scale: 0.78,
-      opacity: 0.0,
-    };
-
-    setItems((prev) => [...prev, newItem]);
+    e.target.value = '';
   };
 
   useEffect(() => {
@@ -148,12 +164,28 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
         setItems((prevItems) => {
           const nextItems = prevItems
             .map((item) => {
-              const nextVy = item.vy + 0.58;
+              const nextOpacity = Math.min(1.0, item.opacity + 0.15);
+              const nextScale = Math.min(1.0, item.scale + 0.03);
+
+              if (item.hoverFrames > 0) {
+                const nextHover = item.hoverFrames - 1;
+                const nextY = item.y + item.vy * 0.15;
+                const nextRot = item.rot + item.vRot * 0.2;
+
+                return {
+                  ...item,
+                  y: nextY,
+                  rot: nextRot,
+                  opacity: nextOpacity,
+                  scale: nextScale,
+                  hoverFrames: nextHover,
+                };
+              }
+
+              const nextVy = item.vy + 0.52;
               const nextY = item.y + nextVy;
               const nextX = item.x + item.vx;
               const nextRot = item.rot + item.vRot;
-              const nextOpacity = Math.min(1.0, item.opacity + 0.14);
-              const nextScale = Math.min(1.0, item.scale + 0.05);
 
               return {
                 ...item,
@@ -190,6 +222,14 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
+
       {children}
 
       {items.map((item) => (
