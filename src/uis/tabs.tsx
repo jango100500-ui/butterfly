@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { Glass } from './glass';
 
 const PHYSICS = {
@@ -39,7 +40,7 @@ const styles = {
   },
   tabItem: {
     position: 'relative' as const,
-    zIndex: 2, 
+    zIndex: 2,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -57,18 +58,19 @@ const styles = {
     left: '4px',
     height: 'calc(100% - 8px)',
     borderRadius: '27px',
-    zIndex: 3, // ПОВЕРХ ИКОНОК, ЧТОБЫ БЛИКИ БЫЛИ СВЕРХУ
+    zIndex: 1,
     pointerEvents: 'none' as const,
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
-    willChange: 'transform, left, width, background-color',
-    transition: 'background-color 0.12s ease-out',
+    willChange: 'transform, left, width, opacity',
+    transition: 'opacity 0.12s ease-out',
     backgroundColor: 'rgba(0, 0, 0, 0.065)',
   },
-  lensContainer: {
+  lensOverlay: {
     position: 'absolute' as const,
     inset: 0,
-    borderRadius: 'inherit',
+    borderRadius: '33px',
+    zIndex: 3,
     pointerEvents: 'none' as const,
     opacity: 0,
     transition: 'opacity 0.12s ease-out',
@@ -115,8 +117,12 @@ const styles = {
 
 export const Tabs: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [tabTexture, setTabTexture] = useState<THREE.Texture | null>(null);
+  const [pillCenter, setPillCenter] = useState({ x: 38, y: 33 });
+  const [pillSize, setPillSize] = useState({ w: 70, h: 58 });
+
   const sliderRef = useRef<HTMLDivElement>(null);
-  const lensRef = useRef<HTMLDivElement>(null);
+  const lensOverlayRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const state = useRef({
@@ -128,6 +134,39 @@ export const Tabs: React.FC = () => {
     intensity: 1,
     currentIndex: 0
   });
+
+  useEffect(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 304;
+    canvas.height = 132;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.scale(2, 2);
+
+    ctx.fillStyle = '#F5F5F7';
+    ctx.fillRect(0, 0, 152, 66);
+
+    ctx.beginPath();
+    ctx.arc(114, 33, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#E5E5EA';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const img = new Image();
+    img.src = '/mocs/house.png';
+    img.onload = () => {
+      ctx.save();
+      ctx.drawImage(img, 38 - 12, 33 - 12, 24, 24);
+      ctx.restore();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      setTabTexture(tex);
+    };
+  }, []);
 
   const spring = (current: number, target: number, velocity: number, config: { k: number; d: number; m: number }) => {
     const force = -config.k * (current - target);
@@ -157,13 +196,15 @@ export const Tabs: React.FC = () => {
       sliderRef.current.style.left = `${state.current.x}px`;
       sliderRef.current.style.width = `${state.current.w}px`;
       sliderRef.current.style.transform = `scale(1, 1)`;
-      sliderRef.current.style.backgroundColor = 'rgba(0, 0, 0, 0.065)';
-      if (lensRef.current) lensRef.current.style.opacity = '0';
+      sliderRef.current.style.opacity = '1';
+      if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '0';
+      setPillCenter({ x: state.current.x + state.current.w / 2, y: 33 });
+      setPillSize({ w: state.current.w, h: 58 });
     } else {
       state.current.intensity = diff > 1 ? 1 : 0.6;
       state.current.isMoving = true;
-      sliderRef.current.style.backgroundColor = 'transparent';
-      if (lensRef.current) lensRef.current.style.opacity = '1';
+      sliderRef.current.style.opacity = '0';
+      if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '1';
     }
   };
 
@@ -175,7 +216,7 @@ export const Tabs: React.FC = () => {
     const update = () => {
       const s = state.current;
       const slider = sliderRef.current;
-      const lens = lensRef.current;
+      const lens = lensOverlayRef.current;
 
       if (slider) {
         const dist = Math.abs(s.x - s.tx);
@@ -183,7 +224,7 @@ export const Tabs: React.FC = () => {
 
         if (s.isMoving) {
           if (dist > 4) {
-            slider.style.backgroundColor = 'transparent';
+            slider.style.opacity = '0';
             if (lens) lens.style.opacity = '1';
 
             s.tsy = 1 + (0.27 * s.intensity);
@@ -196,7 +237,7 @@ export const Tabs: React.FC = () => {
             s.tsy = 1;
             if (vel < 0.2 && Math.abs(s.vsx) < 0.2) {
               s.isMoving = false;
-              slider.style.backgroundColor = 'rgba(0, 0, 0, 0.065)';
+              slider.style.opacity = '1';
               if (lens) lens.style.opacity = '0';
             }
           }
@@ -211,27 +252,8 @@ export const Tabs: React.FC = () => {
         slider.style.width = `${s.w}px`;
         slider.style.transform = `scale(${s.sx}, ${s.sy})`;
 
-        // ИДЕАЛЬНАЯ ФИЗИКА ПРЕЛОМЛЕНИЯ DOM-ЭЛЕМЕНТОВ
-        tabRefs.current.forEach((tab) => {
-          if (!tab) return;
-          const iconEl = tab.firstElementChild as HTMLElement;
-          if (!iconEl) return;
-
-          const tabCenter = tab.offsetLeft + tab.offsetWidth / 2;
-          const sliderCenter = s.x + s.w / 2;
-          const delta = tabCenter - sliderCenter;
-          const radius = s.w / 2;
-
-          if (s.isMoving && Math.abs(delta) < radius * 1.5) {
-            const t = Math.abs(delta) / (radius * 1.5); // Нормализованное расстояние
-            // Эмуляция выпуклой линзы: увеличение + смещение (дисторсия IOR)
-            const mag = 1.0 + 0.15 * (1 - t * t);
-            const shiftX = delta * 0.15 * (1 - t * t);
-            iconEl.style.transform = `scale(${mag}) translateX(${shiftX}px)`;
-          } else {
-            iconEl.style.transform = 'scale(1) translateX(0px)';
-          }
-        });
+        setPillCenter({ x: s.x + s.w / 2, y: 33 });
+        setPillSize({ w: s.w * s.sx, h: 58 * s.sy });
       }
 
       rafId = requestAnimationFrame(update);
@@ -247,10 +269,19 @@ export const Tabs: React.FC = () => {
         <Glass radius={33} />
         <div style={styles.tabBarBg} />
 
-        <div ref={sliderRef} style={styles.slider}>
-          <div ref={lensRef} style={styles.lensContainer}>
-            <Glass radius={27} noShadow isPill />
-          </div>
+        <div ref={sliderRef} style={styles.slider} />
+
+        <div ref={lensOverlayRef} style={styles.lensOverlay}>
+          {tabTexture && (
+            <Glass
+              radius={27}
+              noShadow
+              isPill
+              bgTexture={tabTexture}
+              center={pillCenter}
+              size={pillSize}
+            />
+          )}
         </div>
 
         <button
