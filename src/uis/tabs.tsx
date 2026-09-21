@@ -27,7 +27,11 @@ const styles = {
     pointerEvents: 'auto' as const,
     width: '152px',
     height: '66px',
-    border: '1px solid rgba(255, 255, 255, 0.4)',
+    background: 'rgba(255, 255, 255, 0.72)',
+    backdropFilter: 'blur(25px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
+    border: '1.5px solid rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
   },
   tabItem: {
     position: 'relative' as const,
@@ -54,18 +58,19 @@ const styles = {
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
     willChange: 'transform, left, width',
+    background: 'rgba(0, 0, 0, 0.06)',
   },
   icon: {
-    width: '26px',
-    height: '26px',
+    width: '24px',
+    height: '24px',
     objectFit: 'contain' as const,
     filter: 'brightness(0)',
   },
   avatarSkeleton: {
-    width: '26px',
-    height: '26px',
+    width: '24px',
+    height: '24px',
     borderRadius: '50%',
-    border: '1px solid rgba(0, 0, 0, 0.14)',
+    border: '1px solid rgba(0, 0, 0, 0.08)',
     boxSizing: 'border-box' as const,
   },
   searchButton: {
@@ -80,8 +85,11 @@ const styles = {
     pointerEvents: 'auto' as const,
     outline: 'none',
     padding: 0,
-    background: 'none',
-    border: '1px solid rgba(255, 255, 255, 0.4)',
+    background: 'rgba(255, 255, 255, 0.72)',
+    backdropFilter: 'blur(25px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
+    border: '1.5px solid rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
   }
 };
 
@@ -183,7 +191,7 @@ export const Tabs: React.FC = () => {
   return (
     <nav style={styles.navWrapper}>
       <div style={styles.tabBar}>
-        <Glass radius={33} />
+        <Glass radius={33} noShadow />
         <div ref={sliderRef} style={styles.slider}>
           <Glass radius={27} noShadow />
         </div>
@@ -221,7 +229,7 @@ export const Tabs: React.FC = () => {
       </div>
 
       <button style={styles.searchButton}>
-        <Glass radius={33} />
+        <Glass radius={33} noShadow />
         <img
           src="/mocs/search.png"
           alt="Search"
