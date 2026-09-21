@@ -62,7 +62,6 @@ const styles = {
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
     willChange: 'transform, left, width, opacity',
-    transition: 'opacity 0.08s ease-out',
     backgroundColor: 'rgba(0, 0, 0, 0.065)',
   },
   lensOverlay: {
@@ -72,7 +71,6 @@ const styles = {
     zIndex: 3,
     pointerEvents: 'none' as const,
     opacity: 0,
-    transition: 'opacity 0.08s ease-out',
   },
   icon: {
     width: '24px',
@@ -116,8 +114,9 @@ const styles = {
 
 export const Tabs: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [pillCenter, setPillCenter] = useState({ x: 38, y: 33 });
-  const [pillSize, setPillSize] = useState({ w: 70, h: 58 });
+
+  const pillCenterRef = useRef({ x: 38, y: 33 });
+  const pillSizeRef = useRef({ w: 70, h: 58 });
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const lensOverlayRef = useRef<HTMLDivElement>(null);
@@ -163,8 +162,10 @@ export const Tabs: React.FC = () => {
       sliderRef.current.style.transform = `scale(1, 1)`;
       sliderRef.current.style.opacity = '1';
       if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '0';
-      setPillCenter({ x: state.current.x + state.current.w / 2, y: 33 });
-      setPillSize({ w: state.current.w, h: 58 });
+      pillCenterRef.current.x = state.current.x + state.current.w / 2;
+      pillCenterRef.current.y = 33;
+      pillSizeRef.current.w = state.current.w;
+      pillSizeRef.current.h = 58;
     } else {
       state.current.intensity = diff > 1 ? 1 : 0.6;
       state.current.isMoving = true;
@@ -185,6 +186,7 @@ export const Tabs: React.FC = () => {
 
       if (slider) {
         const dist = Math.abs(s.x - s.tx);
+        const vel = Math.abs(s.vx);
 
         if (s.isMoving) {
           if (dist > 12) {
@@ -202,9 +204,11 @@ export const Tabs: React.FC = () => {
           } else {
             s.tsx = 1;
             s.tsy = 1;
-            s.isMoving = false;
-            slider.style.opacity = '1';
-            if (lens) lens.style.opacity = '0';
+            if (vel < 0.3 && Math.abs(s.vsx) < 0.3) {
+              s.isMoving = false;
+              slider.style.opacity = '1';
+              if (lens) lens.style.opacity = '0';
+            }
           }
         }
 
@@ -217,8 +221,10 @@ export const Tabs: React.FC = () => {
         slider.style.width = `${s.w}px`;
         slider.style.transform = `scale(${s.sx}, ${s.sy})`;
 
-        setPillCenter({ x: s.x + s.w / 2, y: 33 });
-        setPillSize({ w: s.w * s.sx, h: 58 * s.sy });
+        pillCenterRef.current.x = s.x + s.w / 2;
+        pillCenterRef.current.y = 33;
+        pillSizeRef.current.w = s.w * s.sx;
+        pillSizeRef.current.h = 58 * s.sy;
       }
 
       rafId = requestAnimationFrame(update);
@@ -241,8 +247,8 @@ export const Tabs: React.FC = () => {
             radius={27}
             noShadow
             isPill
-            center={pillCenter}
-            size={pillSize}
+            centerRef={pillCenterRef}
+            sizeRef={pillSizeRef}
           />
         </div>
 
