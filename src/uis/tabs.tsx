@@ -57,7 +57,7 @@ const styles = {
     left: '4px',
     height: 'calc(100% - 8px)',
     borderRadius: '27px',
-    zIndex: 1, 
+    zIndex: 3, // ПОВЕРХ ИКОНОК, ЧТОБЫ БЛИКИ БЫЛИ СВЕРХУ
     pointerEvents: 'none' as const,
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
@@ -78,7 +78,7 @@ const styles = {
     height: '24px',
     objectFit: 'contain' as const,
     filter: 'brightness(0)',
-    transition: 'opacity 0.2s ease, transform 0.16s ease-out',
+    transition: 'opacity 0.2s ease',
   },
   avatarSkeleton: {
     width: '24px',
@@ -86,7 +86,7 @@ const styles = {
     borderRadius: '50%',
     border: '1px solid rgba(0, 0, 0, 0.08)',
     boxSizing: 'border-box' as const,
-    transition: 'opacity 0.2s ease, transform 0.16s ease-out',
+    transition: 'opacity 0.2s ease',
   },
   searchButton: {
     position: 'relative' as const,
@@ -211,6 +211,7 @@ export const Tabs: React.FC = () => {
         slider.style.width = `${s.w}px`;
         slider.style.transform = `scale(${s.sx}, ${s.sy})`;
 
+        // ИДЕАЛЬНАЯ ФИЗИКА ПРЕЛОМЛЕНИЯ DOM-ЭЛЕМЕНТОВ
         tabRefs.current.forEach((tab) => {
           if (!tab) return;
           const iconEl = tab.firstElementChild as HTMLElement;
@@ -218,13 +219,17 @@ export const Tabs: React.FC = () => {
 
           const tabCenter = tab.offsetLeft + tab.offsetWidth / 2;
           const sliderCenter = s.x + s.w / 2;
-          const delta = Math.abs(tabCenter - sliderCenter);
+          const delta = tabCenter - sliderCenter;
+          const radius = s.w / 2;
 
-          if (s.isMoving && delta < s.w * 0.7) {
-            const factor = 1 - delta / (s.w * 0.7);
-            iconEl.style.transform = `scale(${1 + factor * 0.16}) translateY(${-factor * 1.5}px)`;
+          if (s.isMoving && Math.abs(delta) < radius * 1.5) {
+            const t = Math.abs(delta) / (radius * 1.5); // Нормализованное расстояние
+            // Эмуляция выпуклой линзы: увеличение + смещение (дисторсия IOR)
+            const mag = 1.0 + 0.15 * (1 - t * t);
+            const shiftX = delta * 0.15 * (1 - t * t);
+            iconEl.style.transform = `scale(${mag}) translateX(${shiftX}px)`;
           } else {
-            iconEl.style.transform = 'scale(1) translateY(0px)';
+            iconEl.style.transform = 'scale(1) translateX(0px)';
           }
         });
       }
