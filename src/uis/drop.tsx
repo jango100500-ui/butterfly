@@ -13,7 +13,6 @@ export interface FallingItem {
   vRot: number;
   scale: number;
   opacity: number;
-  hoverFrames: number;
 }
 
 interface DropZoneProps {
@@ -30,11 +29,11 @@ const styles = {
   },
   itemCard: {
     position: 'absolute' as const,
-    width: '220px',
-    height: '220px',
+    width: '200px',
+    height: '200px',
     borderRadius: '24px',
     overflow: 'hidden',
-    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.22), 0 6px 18px rgba(0, 0, 0, 0.08)',
+    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.08)',
     border: '2px solid rgba(255, 255, 255, 0.95)',
     background: '#FFFFFF',
     pointerEvents: 'none' as const,
@@ -92,64 +91,87 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
   const itemsRef = useRef<FallingItem[]>([]);
   itemsRef.current = items;
 
-  const handleFiles = (files: FileList | null, clientX: number, clientY: number) => {
-    if (!files || files.length === 0) return;
+  const spawnItem = (file: File | Blob, clientX: number, clientY: number, fileName = 'file') => {
+    const url = URL.createObjectURL(file);
+    const mime = file.type || '';
 
-    const newItems: FallingItem[] = Array.from(files).map((file) => {
-      const url = URL.createObjectURL(file);
-      const mime = file.type;
+    const isVideo = mime.startsWith('video/') || fileName.match(/\.(mp4|mov|webm)/i);
+    const isImage = mime.startsWith('image/') || fileName.match(/\.(jpg|jpeg|png|gif|webp|heic)/i);
 
-      const itemType: 'image' | 'video' | 'file' = mime.startsWith('video/')
-        ? 'video'
-        : mime.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp|heic)/i)
-        ? 'image'
-        : 'file';
+    const itemType: 'image' | 'video' | 'file' = isVideo ? 'video' : isImage ? 'image' : 'file';
 
-      const cardWidth = 220;
-      const cardHeight = 220;
+    const cardWidth = 200;
+    const cardHeight = 200;
 
-      const posX = clientX > 0 ? clientX : window.innerWidth / 2;
-      const posY = clientY > 0 ? clientY : window.innerHeight / 2 - 40;
+    const posX = clientX > 0 ? clientX : window.innerWidth / 2;
+    const posY = clientY > 0 ? clientY : window.innerHeight / 2 - 40;
 
-      const clampedX = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, posX - cardWidth / 2));
-      const clampedY = Math.max(70, Math.min(window.innerHeight - cardHeight - 110, posY - cardHeight / 2));
+    const clampedX = Math.max(16, Math.min(window.innerWidth - cardWidth - 16, posX - cardWidth / 2));
+    const clampedY = Math.max(70, Math.min(window.innerHeight - cardHeight - 110, posY - cardHeight / 2));
 
-      return {
-        id: Math.random().toString(),
-        url,
-        name: file.name,
-        type: itemType,
-        x: clampedX,
-        y: clampedY,
-        vx: (Math.random() - 0.5) * 1.0,
-        vy: -0.6,
-        rot: (Math.random() - 0.5) * 4,
-        vRot: (Math.random() - 0.5) * 0.2,
-        scale: 0.7,
-        opacity: 1.0,
-        hoverFrames: 180,
-      };
-    });
+    const newItem: FallingItem = {
+      id: Math.random().toString(),
+      url,
+      name: fileName,
+      type: itemType,
+      x: clampedX,
+      y: clampedY,
+      vx: (Math.random() - 0.5) * 1.4,
+      vy: -1.5,
+      rot: (Math.random() - 0.5) * 4,
+      vRot: (Math.random() - 0.5) * 0.25,
+      scale: 0.65,
+      opacity: 1.0,
+    };
 
-    setItems((prev) => [...prev, ...newItems]);
+    setItems((prev) => [...prev, newItem]);
   };
 
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = 'copy';
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
   };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    handleFiles(e.dataTransfer.files, e.clientX, e.clientY);
+
+    const clientX = e.clientX || 0;
+    const clientY = e.clientY || 0;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      Array.from(e.dataTransfer.files).forEach((file) => {
+        spawnItem(file, clientX, clientY, file.name);
+      });
+      return;
+    }
+
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        const file = item.getAsFile();
+        if (file) {
+          spawnItem(file, clientX, clientY, file.name);
+          return;
+        }
+      }
+    }
   };
 
   const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
     const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2 - 40;
-    handleFiles(e.target.files, centerX, centerY);
+    const centerY = window.innerHeight / 2 - 30;
+
+    Array.from(files).forEach((file) => {
+      spawnItem(file, centerX, centerY, file.name);
+    });
+
     e.target.value = '';
   };
 
@@ -161,19 +183,8 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
         setItems((prevItems) => {
           return prevItems
             .map((item) => {
-              const nextScale = Math.min(1.0, item.scale + 0.05);
-
-              if (item.hoverFrames > 0) {
-                return {
-                  ...item,
-                  y: item.y + item.vy * 0.08,
-                  rot: item.rot + item.vRot * 0.1,
-                  scale: nextScale,
-                  hoverFrames: item.hoverFrames - 1,
-                };
-              }
-
-              const nextVy = item.vy + 0.48;
+              const nextScale = Math.min(1.0, item.scale + 0.04);
+              const nextVy = item.vy + 0.42;
               const nextY = item.y + nextVy;
               const nextX = item.x + item.vx;
               const nextRot = item.rot + item.vRot;
@@ -214,9 +225,18 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
       <input
         id="file-upload"
         type="file"
-        accept="image/*,video/*"
+        accept="image/*,video/*,*/*"
         multiple
-        style={{ display: 'none' }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '1px',
+          height: '1px',
+          opacity: 0,
+          pointerEvents: 'none',
+          zIndex: -1,
+        }}
         onChange={onInputChange}
       />
 
