@@ -62,7 +62,7 @@ const styles = {
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
     willChange: 'transform, left, width, opacity',
-    transition: 'opacity 0.12s ease-out',
+    transition: 'opacity 0.08s ease-out',
     backgroundColor: 'rgba(0, 0, 0, 0.065)',
   },
   lensOverlay: {
@@ -72,7 +72,7 @@ const styles = {
     zIndex: 3,
     pointerEvents: 'none' as const,
     opacity: 0,
-    transition: 'opacity 0.12s ease-out',
+    transition: 'opacity 0.08s ease-out',
   },
   icon: {
     width: '24px',
@@ -185,26 +185,26 @@ export const Tabs: React.FC = () => {
 
       if (slider) {
         const dist = Math.abs(s.x - s.tx);
-        const vel = Math.abs(s.vx);
 
         if (s.isMoving) {
-          if (dist > 4) {
+          if (dist > 12) {
             slider.style.opacity = '0';
             if (lens) lens.style.opacity = '1';
 
             s.tsy = 1 + (0.27 * s.intensity);
             s.tsx = 1 - (0.10 * s.intensity);
-          } else if (dist <= 4 && dist > 0.4) {
+          } else if (dist <= 12 && dist > 0.5) {
+            slider.style.opacity = '1';
+            if (lens) lens.style.opacity = '0';
+
             s.tsy = 1 - (0.05 * s.intensity);
             s.tsx = 1 + (0.08 * s.intensity);
           } else {
             s.tsx = 1;
             s.tsy = 1;
-            if (vel < 0.2 && Math.abs(s.vsx) < 0.2) {
-              s.isMoving = false;
-              slider.style.opacity = '1';
-              if (lens) lens.style.opacity = '0';
-            }
+            s.isMoving = false;
+            slider.style.opacity = '1';
+            if (lens) lens.style.opacity = '0';
           }
         }
 
