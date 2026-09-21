@@ -174,8 +174,8 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
     defaultTexture.needsUpdate = true;
 
     const scale = Math.min(baseW, baseH) / 280;
-    const scaledBezel = Math.max(8.0, 48.0 * scale);
-    const scaledThickness = Math.max(12.0, 62.0 * scale);
+    const scaledBezel = Math.max(6.0, 42.0 * scale);
+    const scaledThickness = Math.max(8.0, 44.0 * scale);
 
     const uniforms = {
       uResolution: { value: new THREE.Vector2(totalW, totalH) },
@@ -221,8 +221,8 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
           uniforms.uGlassSize.value.set(baseW, baseH);
 
           const curScale = Math.min(baseW, baseH) / 280;
-          uniforms.uBezel.value = Math.max(8.0, 48.0 * curScale);
-          uniforms.uThickness.value = Math.max(12.0, 62.0 * curScale);
+          uniforms.uBezel.value = Math.max(6.0, 42.0 * curScale);
+          uniforms.uThickness.value = Math.max(8.0, 44.0 * curScale);
         }
       }
       renderer.render(scene, camera);
