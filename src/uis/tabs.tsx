@@ -39,7 +39,7 @@ const styles = {
   },
   tabItem: {
     position: 'relative' as const,
-    zIndex: 2, // ИКОНКИ СВЕРХУ
+    zIndex: 2, 
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -57,7 +57,7 @@ const styles = {
     left: '4px',
     height: 'calc(100% - 8px)',
     borderRadius: '27px',
-    zIndex: 1, // КАПЛЯ ЛЕТАЕТ ПОД ИКОНКАМИ
+    zIndex: 1, 
     pointerEvents: 'none' as const,
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
