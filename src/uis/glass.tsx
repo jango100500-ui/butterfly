@@ -26,8 +26,7 @@ uniform float uRimGlow;
 uniform float uTint;
 uniform float uShadow;
 uniform float uIsPill;
-uniform sampler2D uBgTex;
-uniform float uBgAspect;
+uniform sampler2D uHouseTex;
 
 float sdRoundedRect(vec2 p, vec2 halfSize, float r) {
   vec2 q = abs(p) - halfSize + r;
@@ -39,38 +38,28 @@ float surfaceHeight(float t) {
   return pow(1.0 - s * s * s * s, 0.25);
 }
 
-vec3 sampleBg(vec2 screenUV) {
-  float screenAspect = uResolution.x / uResolution.y;
-  vec2 uv = screenUV;
-  if (uBgAspect > screenAspect) {
-    float s = screenAspect / uBgAspect;
-    uv.x = uv.x * s + (1.0 - s) * 0.5;
-  } else {
-    float s = uBgAspect / screenAspect;
-    uv.y = uv.y * s + (1.0 - s) * 0.5;
-  }
-  uv.y = 1.0 - uv.y;
-  return texture2D(uBgTex, uv).rgb;
-}
+vec3 sampleBackground(vec2 px) {
+  vec3 bg = vec3(0.9608, 0.9608, 0.9686);
 
-vec3 sampleBgBlurred(vec2 uv, float radius) {
-  if (radius < 0.5) return sampleBg(uv);
-  vec3 sum = vec3(0.0);
-  vec2 px = 1.0 / uResolution;
-  vec2 o[16];
-  o[0] = vec2(-0.942, -0.399); o[1] = vec2(0.946, -0.769);
-  o[2] = vec2(-0.094, -0.929);  o[3] = vec2(0.345, 0.294);
-  o[4] = vec2(-0.916, -0.458);  o[5] = vec2(-0.815, 0.486);
-  o[6] = vec2(-0.383, -0.561);  o[7] = vec2(-0.127, 0.846);
-  o[8] = vec2(0.896, 0.413);    o[9] = vec2(0.182, -0.300);
-  o[10] = vec2(-0.014, -0.160); o[11] = vec2(0.596, 0.711);
-  o[12] = vec2(0.497, -0.473);  o[13] = vec2(0.807, 0.046);
-  o[14] = vec2(-0.325, -0.040); o[15] = vec2(-0.610, 0.066);
+  if (uIsPill > 0.5) {
+    vec2 houseDelta = px - vec2(38.0, 33.0);
+    if (abs(houseDelta.x) <= 12.0 && abs(houseDelta.y) <= 12.0) {
+      vec2 iconUv = (houseDelta + 12.0) / 24.0;
+      iconUv.y = 1.0 - iconUv.y;
+      vec4 iconColor = texture2D(uHouseTex, iconUv);
+      bg = mix(bg, vec3(0.0), iconColor.a);
+    }
 
-  for (int i = 0; i < 16; i++) {
-    sum += sampleBg(uv + o[i] * radius * px);
+    float profileDist = length(px - vec2(114.0, 33.0));
+    if (profileDist <= 12.0) {
+      bg = vec3(0.898, 0.898, 0.918);
+      if (profileDist >= 11.0) {
+        bg = mix(bg, vec3(0.0), 0.08);
+      }
+    }
   }
-  return sum / 16.0;
+
+  return bg;
 }
 
 void main() {
@@ -84,6 +73,9 @@ void main() {
   float sd = sdRoundedRect(p, halfSize, safeRadius);
 
   if (sd > 0.0) {
+    if (uIsPill > 0.5) {
+      discard;
+    }
     float shadowFalloff = exp(-sd * sd / 350.0);
     gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.4);
     return;
@@ -110,10 +102,10 @@ void main() {
   grad.y = sdRoundedRect(p + vec2(0.0, eps), halfSize, safeRadius) - sd;
   grad = normalize(grad);
 
-  vec2 offset = -grad * displacement / uResolution;
-  vec2 screenUV = screenPx / uResolution;
+  vec2 offsetPx = -grad * displacement;
+  vec2 samplePos = screenPx + offsetPx;
 
-  vec3 color = sampleBgBlurred(screenUV + offset, uBlur);
+  vec3 color = sampleBackground(samplePos);
 
   vec2 lightDir = normalize(vec2(0.5, -0.7));
   float rimDot = abs(dot(grad, lightDir));
@@ -127,7 +119,6 @@ void main() {
   }
 
   float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
-
   if (uIsPill > 0.5) {
     color = mix(color, vec3(0.0), edgeLine * 0.3);
   } else {
@@ -148,7 +139,6 @@ interface GlassProps {
   radius?: number;
   noShadow?: boolean;
   isPill?: boolean;
-  bgTexture?: THREE.Texture | null;
   center?: { x: number; y: number };
   size?: { w: number; h: number };
 }
@@ -157,9 +147,8 @@ export const Glass: React.FC<GlassProps> = ({
   radius = 33,
   noShadow = false,
   isPill = false,
-  bgTexture = null,
   center,
-  size
+  size,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -192,13 +181,10 @@ export const Glass: React.FC<GlassProps> = ({
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    const fallbackTexture = new THREE.DataTexture(
-      new Uint8Array([245, 245, 247, 255]),
-      1,
-      1,
-      THREE.RGBAFormat
-    );
-    fallbackTexture.needsUpdate = true;
+    const textureLoader = new THREE.TextureLoader();
+    const houseTexture = textureLoader.load('/mocs/house.png');
+    houseTexture.minFilter = THREE.LinearFilter;
+    houseTexture.magFilter = THREE.LinearFilter;
 
     const initialCenter = centerRef.current
       ? new THREE.Vector2(centerRef.current.x + margin, centerRef.current.y + margin)
@@ -222,8 +208,7 @@ export const Glass: React.FC<GlassProps> = ({
       uTint: { value: 0.07 },
       uShadow: { value: noShadow ? 0.0 : 0.08 },
       uIsPill: { value: isPill ? 1.0 : 0.0 },
-      uBgTex: { value: bgTexture || fallbackTexture },
-      uBgAspect: { value: totalW / totalH },
+      uHouseTex: { value: houseTexture },
     };
 
     const material = new THREE.ShaderMaterial({
@@ -249,7 +234,6 @@ export const Glass: React.FC<GlassProps> = ({
           totalH = baseH + margin * 2;
           renderer.setSize(totalW, totalH);
           uniforms.uResolution.value.set(totalW, totalH);
-          uniforms.uBgAspect.value = totalW / totalH;
         }
 
         if (centerRef.current) {
@@ -278,9 +262,9 @@ export const Glass: React.FC<GlassProps> = ({
       cancelAnimationFrame(animationFrameId);
       renderer.dispose();
       material.dispose();
-      fallbackTexture.dispose();
+      houseTexture.dispose();
     };
-  }, [radius, noShadow, isPill, bgTexture]);
+  }, [radius, noShadow, isPill]);
 
   const margin = noShadow ? 0 : 20;
 
