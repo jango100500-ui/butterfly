@@ -110,34 +110,45 @@ void main() {
   grad.y = sdRoundedRect(p + vec2(0.0, eps), halfSize, safeRadius) - sd;
   grad = normalize(grad);
 
-  vec2 offset = -grad * displacement / uResolution;
-  vec2 screenUV = screenPx / uResolution;
-
-  vec3 color = sampleBgBlurred(screenUV + offset, uBlur);
-
+  // Освещение (идентично для обоих режимов)
   vec2 lightDir = normalize(vec2(0.5, -0.7));
   float rimDot = abs(dot(grad, lightDir));
   float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.4, distFromEdge);
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
-  color += vec3(specHighlight * uSpecular * uRimGlow);
-
   float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
+  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
+  float baseAlpha = smoothstep(0.0, 1.5, distFromEdge);
 
   if (uIsPill > 0.5) {
-    // Темный контур для летящей пилюли
-    color = mix(color, vec3(0.0), edgeLine * 0.25);
+    // РЕЖИМ ПИЛЮЛИ (Прозрачная база для HTML-иконок + блики и темный контур)
+    vec3 finalColor = vec3(0.0);
+    float finalAlpha = 0.0;
+    
+    // Темный контур из референса
+    finalColor = mix(finalColor, vec3(0.0), edgeLine);
+    finalAlpha = max(finalAlpha, edgeLine * 0.35);
+    
+    // Спекулярные блики
+    finalColor += vec3(1.0) * specHighlight * uSpecular;
+    finalAlpha = max(finalAlpha, specHighlight * uSpecular);
+    
+    finalColor += vec3(1.0) * innerRim * 0.055 * uSpecular;
+    finalAlpha = max(finalAlpha, innerRim * 0.055 * uSpecular);
+    
+    gl_FragColor = vec4(finalColor, finalAlpha * baseAlpha);
   } else {
-    // Светлый контур для таббара и кнопки
+    // РЕЖИМ ТАББАРА И КНОПКИ (Оригинальное стекло с заливкой)
+    vec2 offset = -grad * displacement / uResolution;
+    vec2 screenUV = (screenPx / uResolution);
+    vec3 color = sampleBgBlurred(screenUV + offset, uBlur);
+    
+    color += vec3(specHighlight * uSpecular * uRimGlow);
     color += vec3(edgeLine * uSpecular * 0.34);
+    color += vec3(innerRim * 0.055 * uSpecular);
+    color = mix(color, vec3(1.0), uTint);
+    
+    gl_FragColor = vec4(color, baseAlpha);
   }
-
-  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
-  color += vec3(innerRim * 0.055 * uSpecular);
-
-  color = mix(color, vec3(1.0), uTint);
-  float alpha = smoothstep(0.0, 1.5, distFromEdge);
-
-  gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -182,7 +193,6 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, isP
     );
     defaultTexture.needsUpdate = true;
 
-    // ТОЧНЫЕ параметры с твоего скриншота, без масштабирования
     const uniforms = {
       uResolution: { value: new THREE.Vector2(totalW, totalH) },
       uGlassCenter: { value: new THREE.Vector2(totalW / 2, totalH / 2) },
