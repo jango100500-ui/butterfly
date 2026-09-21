@@ -128,6 +128,7 @@ export const Tabs: React.FC = () => {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const isDraggingRef = useRef(false);
+  const wasDraggingRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
   const lastTouchXRef = useRef(0);
   const touchVelocityRef = useRef(0);
@@ -191,6 +192,7 @@ export const Tabs: React.FC = () => {
     const touchX = e.clientX - rect.left;
     lastTouchXRef.current = touchX;
     touchVelocityRef.current = 0;
+    wasDraggingRef.current = false;
 
     const activeEl = tabRefs.current[state.current.currentIndex];
     if (!activeEl) return;
@@ -199,8 +201,11 @@ export const Tabs: React.FC = () => {
     const pillRight = pillLeft + activeEl.offsetWidth;
 
     if (touchX >= pillLeft && touchX <= pillRight) {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
       longPressTimerRef.current = window.setTimeout(() => {
         isDraggingRef.current = true;
+        wasDraggingRef.current = true;
         state.current.isMoving = true;
 
         if (sliderRef.current) sliderRef.current.style.opacity = '0';
@@ -208,15 +213,21 @@ export const Tabs: React.FC = () => {
 
         state.current.tsy = 1.45;
         state.current.tsx = 0.85;
-      }, 180);
+      }, 160);
     }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDraggingRef.current) {
       if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
+        const rect = tabBarRef.current?.getBoundingClientRect();
+        if (rect) {
+          const touchX = e.clientX - rect.left;
+          if (Math.abs(touchX - lastTouchXRef.current) > 6) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+          }
+        }
       }
       return;
     }
@@ -233,7 +244,7 @@ export const Tabs: React.FC = () => {
     state.current.tx = targetX;
 
     const speed = Math.min(15, touchVelocityRef.current);
-    if (speed > 1.5) {
+    if (speed > 1.2) {
       const stretchFactor = speed / 15;
       state.current.tsy = 1.45 - stretchFactor * 0.48;
       state.current.tsx = 0.85 + stretchFactor * 0.35;
@@ -243,17 +254,26 @@ export const Tabs: React.FC = () => {
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent) => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
 
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+
     if (isDraggingRef.current) {
       isDraggingRef.current = false;
-      const center = state.current.x + state.current.w / 2;
-      const snapIndex = center < 76 ? 0 : 1;
+      const rect = tabBarRef.current?.getBoundingClientRect();
+      const touchX = rect ? e.clientX - rect.left : lastTouchXRef.current;
+      const snapIndex = touchX < 76 ? 0 : 1;
       setTarget(snapIndex);
+
+      setTimeout(() => {
+        wasDraggingRef.current = false;
+      }, 120);
     }
   };
 
@@ -346,7 +366,9 @@ export const Tabs: React.FC = () => {
           ref={(el) => (tabRefs.current[0] = el)}
           style={styles.tabItem}
           onClick={() => {
-            if (!isDraggingRef.current) setTarget(0);
+            if (!wasDraggingRef.current && !isDraggingRef.current) {
+              setTarget(0);
+            }
           }}
         >
           <img
@@ -363,7 +385,9 @@ export const Tabs: React.FC = () => {
           ref={(el) => (tabRefs.current[1] = el)}
           style={styles.tabItem}
           onClick={() => {
-            if (!isDraggingRef.current) setTarget(1);
+            if (!wasDraggingRef.current && !isDraggingRef.current) {
+              setTarget(1);
+            }
           }}
         >
           <div
