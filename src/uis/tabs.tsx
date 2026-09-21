@@ -57,26 +57,26 @@ const styles = {
     pointerEvents: 'none' as const,
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
-    willChange: 'transform, left, width, background-color, border-color',
-    transition: 'background-color 0.18s ease-out, border-color 0.18s ease-out',
-    border: '1px solid transparent',
+    willChange: 'transform, left, width, background-color, border-color, backdrop-filter',
+    transition: 'background-color 0.14s ease-out, border-color 0.14s ease-out',
+    border: '1.5px solid transparent',
+    backgroundColor: 'rgba(0, 0, 0, 0.065)',
   },
-  glassLayer: {
+  lensBezel: {
     position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
+    inset: 0,
     borderRadius: 'inherit',
     pointerEvents: 'none' as const,
-    transition: 'opacity 0.18s ease-out',
+    boxShadow: 'inset 0 0 0 1.5px rgba(255, 255, 255, 0.85), inset 0 0 10px rgba(255, 255, 255, 0.4)',
+    opacity: 0,
+    transition: 'opacity 0.14s ease-out',
   },
   icon: {
     width: '24px',
     height: '24px',
     objectFit: 'contain' as const,
     filter: 'brightness(0)',
-    transition: 'transform 0.18s ease-out, opacity 0.2s ease',
+    transition: 'opacity 0.2s ease, transform 0.16s ease-out',
   },
   avatarSkeleton: {
     width: '24px',
@@ -84,7 +84,7 @@ const styles = {
     borderRadius: '50%',
     border: '1px solid rgba(0, 0, 0, 0.08)',
     boxSizing: 'border-box' as const,
-    transition: 'transform 0.18s ease-out, opacity 0.2s ease',
+    transition: 'opacity 0.2s ease, transform 0.16s ease-out',
   },
   searchButton: {
     position: 'relative' as const,
@@ -108,8 +108,8 @@ const styles = {
 
 export const Tabs: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isFlying, setIsFlying] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const lensRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const state = useRef({
@@ -150,11 +150,18 @@ export const Tabs: React.FC = () => {
       sliderRef.current.style.left = `${state.current.x}px`;
       sliderRef.current.style.width = `${state.current.w}px`;
       sliderRef.current.style.transform = `scale(1, 1)`;
-      setIsFlying(false);
+      sliderRef.current.style.backgroundColor = 'rgba(0, 0, 0, 0.065)';
+      sliderRef.current.style.borderColor = 'transparent';
+      sliderRef.current.style.backdropFilter = 'none';
+      if (lensRef.current) lensRef.current.style.opacity = '0';
     } else {
       state.current.intensity = diff > 1 ? 1 : 0.6;
       state.current.isMoving = true;
-      setIsFlying(true);
+      sliderRef.current.style.backgroundColor = 'transparent';
+      sliderRef.current.style.borderColor = 'rgba(255, 255, 255, 0.85)';
+      sliderRef.current.style.backdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
+      sliderRef.current.style.webkitBackdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
+      if (lensRef.current) lensRef.current.style.opacity = '1';
     }
   };
 
@@ -166,17 +173,23 @@ export const Tabs: React.FC = () => {
     const update = () => {
       const s = state.current;
       const slider = sliderRef.current;
+      const lens = lensRef.current;
 
       if (slider) {
         const dist = Math.abs(s.x - s.tx);
         const vel = Math.abs(s.vx);
 
         if (s.isMoving) {
-          if (dist > 6) {
+          if (dist > 4) {
+            slider.style.backgroundColor = 'transparent';
+            slider.style.borderColor = 'rgba(255, 255, 255, 0.85)';
+            slider.style.backdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
+            slider.style.webkitBackdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
+            if (lens) lens.style.opacity = '1';
+
             s.tsy = 1 + (0.27 * s.intensity);
             s.tsx = 1 - (0.10 * s.intensity);
-            setIsFlying(true);
-          } else if (dist <= 6 && dist > 0.5) {
+          } else if (dist <= 4 && dist > 0.4) {
             s.tsy = 1 - (0.05 * s.intensity);
             s.tsx = 1 + (0.08 * s.intensity);
           } else {
@@ -184,7 +197,11 @@ export const Tabs: React.FC = () => {
             s.tsy = 1;
             if (vel < 0.2 && Math.abs(s.vsx) < 0.2) {
               s.isMoving = false;
-              setIsFlying(false);
+              slider.style.backgroundColor = 'rgba(0, 0, 0, 0.065)';
+              slider.style.borderColor = 'transparent';
+              slider.style.backdropFilter = 'none';
+              slider.style.webkitBackdropFilter = 'none';
+              if (lens) lens.style.opacity = '0';
             }
           }
         }
@@ -197,6 +214,23 @@ export const Tabs: React.FC = () => {
         slider.style.left = `${s.x}px`;
         slider.style.width = `${s.w}px`;
         slider.style.transform = `scale(${s.sx}, ${s.sy})`;
+
+        tabRefs.current.forEach((tab, index) => {
+          if (!tab) return;
+          const iconEl = tab.firstElementChild as HTMLElement;
+          if (!iconEl) return;
+
+          const tabCenter = tab.offsetLeft + tab.offsetWidth / 2;
+          const sliderCenter = s.x + s.w / 2;
+          const delta = Math.abs(tabCenter - sliderCenter);
+
+          if (s.isMoving && delta < s.w * 0.7) {
+            const factor = 1 - delta / (s.w * 0.7);
+            iconEl.style.transform = `scale(${1 + factor * 0.16}) translateY(${-factor * 1.5}px)`;
+          } else {
+            iconEl.style.transform = 'scale(1) translateY(0px)';
+          }
+        });
       }
 
       rafId = requestAnimationFrame(update);
@@ -211,19 +245,8 @@ export const Tabs: React.FC = () => {
       <div style={styles.tabBar}>
         <Glass radius={33} noShadow />
 
-        <div
-          ref={sliderRef}
-          style={{
-            ...styles.slider,
-            backgroundColor: isFlying ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.065)',
-            borderColor: isFlying ? 'rgba(255, 255, 255, 0.7)' : 'transparent',
-            backdropFilter: isFlying ? 'blur(8px) contrast(120%)' : 'none',
-            WebkitBackdropFilter: isFlying ? 'blur(8px) contrast(120%)' : 'none',
-          }}
-        >
-          <div style={{ ...styles.glassLayer, opacity: isFlying ? 1 : 0 }}>
-            <Glass radius={27} noShadow />
-          </div>
+        <div ref={sliderRef} style={styles.slider}>
+          <div ref={lensRef} style={styles.lensBezel} />
         </div>
 
         <button
@@ -237,7 +260,6 @@ export const Tabs: React.FC = () => {
             style={{
               ...styles.icon,
               opacity: activeIndex === 0 ? 1 : 0.35,
-              transform: isFlying && activeIndex !== 0 ? 'scale(0.92)' : 'scale(1)',
             }}
           />
         </button>
@@ -252,7 +274,6 @@ export const Tabs: React.FC = () => {
             style={{
               ...styles.avatarSkeleton,
               opacity: activeIndex === 1 ? 1 : 0.35,
-              transform: isFlying && activeIndex !== 1 ? 'scale(0.92)' : 'scale(1)',
             }}
           />
         </button>
