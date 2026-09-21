@@ -141,7 +141,7 @@ interface GlassProps {
   noShadow?: boolean;
 }
 
-export const Glass: React.FC<GlassProps> = ({ radius = 30, noShadow = false }) => {
+export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -150,8 +150,8 @@ export const Glass: React.FC<GlassProps> = ({ radius = 30, noShadow = false }) =
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    let width = container.clientWidth || 1;
+    let height = container.clientHeight || 1;
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
@@ -165,58 +165,66 @@ export const Glass: React.FC<GlassProps> = ({ radius = 30, noShadow = false }) =
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     const defaultTexture = new THREE.DataTexture(
-      new Uint8Array([255, 255, 255, 255]),
+      new Uint8Array([248, 248, 250, 255]),
       1,
       1,
       THREE.RGBAFormat
     );
     defaultTexture.needsUpdate = true;
 
+    const uniforms = {
+      uResolution: { value: new THREE.Vector2(width, height) },
+      uGlassCenter: { value: new THREE.Vector2(width / 2, height / 2) },
+      uGlassSize: { value: new THREE.Vector2(width, height) },
+      uRadius: { value: radius },
+      uBezel: { value: 48.0 },
+      uThickness: { value: 62.0 },
+      uIOR: { value: 2.7 },
+      uBlur: { value: 2.0 },
+      uSpecular: { value: 0.52 },
+      uRimGlow: { value: 0.03 },
+      uTint: { value: 0.07 },
+      uShadow: { value: noShadow ? 0.0 : 0.30 },
+      uBgTex: { value: defaultTexture },
+      uBgAspect: { value: 1.0 },
+    };
+
     const material = new THREE.ShaderMaterial({
       vertexShader,
       fragmentShader,
       transparent: true,
       depthTest: false,
-      uniforms: {
-        uResolution: { value: new THREE.Vector2(width, height) },
-        uGlassCenter: { value: new THREE.Vector2(width / 2, height / 2) },
-        uGlassSize: { value: new THREE.Vector2(width, height) },
-        uRadius: { value: radius },
-        uBezel: { value: 48 },
-        uThickness: { value: 62 },
-        uIOR: { value: 2.7 },
-        uBlur: { value: 2 },
-        uSpecular: { value: 0.52 },
-        uRimGlow: { value: 0.03 },
-        uTint: { value: 0.07 },
-        uShadow: { value: noShadow ? 0.0 : 0.30 },
-        uBgTex: { value: defaultTexture },
-        uBgAspect: { value: 1.0 },
-      },
+      uniforms,
     });
 
     scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material));
 
-    renderer.render(scene, camera);
+    let animationFrameId: number;
 
-    const handleResize = () => {
-      if (!container) return;
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      renderer.setSize(w, h);
-      material.uniforms.uResolution.value.set(w, h);
-      material.uniforms.uGlassCenter.value.set(w / 2, h / 2);
-      material.uniforms.uGlassSize.value.set(w, h);
+    const render = () => {
+      if (container) {
+        const currentW = container.clientWidth;
+        const currentH = container.clientHeight;
+        if (currentW > 0 && currentH > 0 && (currentW !== width || currentH !== height)) {
+          width = currentW;
+          height = currentH;
+          renderer.setSize(width, height);
+          uniforms.uResolution.value.set(width, height);
+          uniforms.uGlassCenter.value.set(width / 2, height / 2);
+          uniforms.uGlassSize.value.set(width, height);
+        }
+      }
       renderer.render(scene, camera);
+      animationFrameId = requestAnimationFrame(render);
     };
 
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(container);
+    render();
 
     return () => {
-      resizeObserver.disconnect();
+      cancelAnimationFrame(animationFrameId);
       renderer.dispose();
       material.dispose();
+      defaultTexture.dispose();
     };
   }, [radius, noShadow]);
 
@@ -232,6 +240,12 @@ export const Glass: React.FC<GlassProps> = ({ radius = 30, noShadow = false }) =
         pointerEvents: 'none',
         borderRadius: 'inherit',
         overflow: 'hidden',
+        boxShadow: noShadow
+          ? 'none'
+          : '0 14px 40px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
+        border: '1px solid rgba(255, 255, 255, 0.45)',
+        backdropFilter: 'blur(20px) saturate(170%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(170%)',
       }}
     >
       <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
