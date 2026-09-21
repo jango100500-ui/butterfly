@@ -153,6 +153,7 @@ export const Tabs: React.FC = () => {
       sliderRef.current.style.backgroundColor = 'rgba(0, 0, 0, 0.065)';
       sliderRef.current.style.borderColor = 'transparent';
       sliderRef.current.style.backdropFilter = 'none';
+      sliderRef.current.style.setProperty('-webkit-backdrop-filter', 'none');
       if (lensRef.current) lensRef.current.style.opacity = '0';
     } else {
       state.current.intensity = diff > 1 ? 1 : 0.6;
@@ -160,7 +161,7 @@ export const Tabs: React.FC = () => {
       sliderRef.current.style.backgroundColor = 'transparent';
       sliderRef.current.style.borderColor = 'rgba(255, 255, 255, 0.85)';
       sliderRef.current.style.backdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
-      sliderRef.current.style.webkitBackdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
+      sliderRef.current.style.setProperty('-webkit-backdrop-filter', 'blur(4px) saturate(200%) contrast(110%)');
       if (lensRef.current) lensRef.current.style.opacity = '1';
     }
   };
@@ -184,7 +185,7 @@ export const Tabs: React.FC = () => {
             slider.style.backgroundColor = 'transparent';
             slider.style.borderColor = 'rgba(255, 255, 255, 0.85)';
             slider.style.backdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
-            slider.style.webkitBackdropFilter = 'blur(4px) saturate(200%) contrast(110%)';
+            slider.style.setProperty('-webkit-backdrop-filter', 'blur(4px) saturate(200%) contrast(110%)');
             if (lens) lens.style.opacity = '1';
 
             s.tsy = 1 + (0.27 * s.intensity);
@@ -200,7 +201,7 @@ export const Tabs: React.FC = () => {
               slider.style.backgroundColor = 'rgba(0, 0, 0, 0.065)';
               slider.style.borderColor = 'transparent';
               slider.style.backdropFilter = 'none';
-              slider.style.webkitBackdropFilter = 'none';
+              slider.style.setProperty('-webkit-backdrop-filter', 'none');
               if (lens) lens.style.opacity = '0';
             }
           }
@@ -215,7 +216,7 @@ export const Tabs: React.FC = () => {
         slider.style.width = `${s.w}px`;
         slider.style.transform = `scale(${s.sx}, ${s.sy})`;
 
-        tabRefs.current.forEach((tab, index) => {
+        tabRefs.current.forEach((tab) => {
           if (!tab) return;
           const iconEl = tab.firstElementChild as HTMLElement;
           if (!iconEl) return;
