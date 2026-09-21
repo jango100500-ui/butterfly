@@ -35,7 +35,7 @@ const styles = {
   },
   tabItem: {
     position: 'relative' as const,
-    zIndex: 2,
+    zIndex: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -53,18 +53,30 @@ const styles = {
     left: '4px',
     height: 'calc(100% - 8px)',
     borderRadius: '27px',
-    zIndex: 1,
+    zIndex: 3,
     pointerEvents: 'none' as const,
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
-    willChange: 'transform, left, width',
-    background: 'rgba(0, 0, 0, 0.06)',
+    willChange: 'transform, left, width, background-color, border-color',
+    transition: 'background-color 0.18s ease-out, border-color 0.18s ease-out',
+    border: '1px solid transparent',
+  },
+  glassLayer: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    borderRadius: 'inherit',
+    pointerEvents: 'none' as const,
+    transition: 'opacity 0.18s ease-out',
   },
   icon: {
     width: '24px',
     height: '24px',
     objectFit: 'contain' as const,
     filter: 'brightness(0)',
+    transition: 'transform 0.18s ease-out, opacity 0.2s ease',
   },
   avatarSkeleton: {
     width: '24px',
@@ -72,6 +84,7 @@ const styles = {
     borderRadius: '50%',
     border: '1px solid rgba(0, 0, 0, 0.08)',
     boxSizing: 'border-box' as const,
+    transition: 'transform 0.18s ease-out, opacity 0.2s ease',
   },
   searchButton: {
     position: 'relative' as const,
@@ -95,6 +108,7 @@ const styles = {
 
 export const Tabs: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isFlying, setIsFlying] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -136,9 +150,11 @@ export const Tabs: React.FC = () => {
       sliderRef.current.style.left = `${state.current.x}px`;
       sliderRef.current.style.width = `${state.current.w}px`;
       sliderRef.current.style.transform = `scale(1, 1)`;
+      setIsFlying(false);
     } else {
       state.current.intensity = diff > 1 ? 1 : 0.6;
       state.current.isMoving = true;
+      setIsFlying(true);
     }
   };
 
@@ -156,10 +172,11 @@ export const Tabs: React.FC = () => {
         const vel = Math.abs(s.vx);
 
         if (s.isMoving) {
-          if (dist > 8) {
+          if (dist > 6) {
             s.tsy = 1 + (0.27 * s.intensity);
             s.tsx = 1 - (0.10 * s.intensity);
-          } else if (dist <= 8 && dist > 0.5) {
+            setIsFlying(true);
+          } else if (dist <= 6 && dist > 0.5) {
             s.tsy = 1 - (0.05 * s.intensity);
             s.tsx = 1 + (0.08 * s.intensity);
           } else {
@@ -167,6 +184,7 @@ export const Tabs: React.FC = () => {
             s.tsy = 1;
             if (vel < 0.2 && Math.abs(s.vsx) < 0.2) {
               s.isMoving = false;
+              setIsFlying(false);
             }
           }
         }
@@ -192,8 +210,20 @@ export const Tabs: React.FC = () => {
     <nav style={styles.navWrapper}>
       <div style={styles.tabBar}>
         <Glass radius={33} noShadow />
-        <div ref={sliderRef} style={styles.slider}>
-          <Glass radius={27} noShadow />
+
+        <div
+          ref={sliderRef}
+          style={{
+            ...styles.slider,
+            backgroundColor: isFlying ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.065)',
+            borderColor: isFlying ? 'rgba(255, 255, 255, 0.7)' : 'transparent',
+            backdropFilter: isFlying ? 'blur(8px) contrast(120%)' : 'none',
+            WebkitBackdropFilter: isFlying ? 'blur(8px) contrast(120%)' : 'none',
+          }}
+        >
+          <div style={{ ...styles.glassLayer, opacity: isFlying ? 1 : 0 }}>
+            <Glass radius={27} noShadow />
+          </div>
         </div>
 
         <button
@@ -207,7 +237,7 @@ export const Tabs: React.FC = () => {
             style={{
               ...styles.icon,
               opacity: activeIndex === 0 ? 1 : 0.35,
-              transition: 'opacity 0.2s ease',
+              transform: isFlying && activeIndex !== 0 ? 'scale(0.92)' : 'scale(1)',
             }}
           />
         </button>
@@ -222,7 +252,7 @@ export const Tabs: React.FC = () => {
             style={{
               ...styles.avatarSkeleton,
               opacity: activeIndex === 1 ? 1 : 0.35,
-              transition: 'opacity 0.2s ease',
+              transform: isFlying && activeIndex !== 1 ? 'scale(0.92)' : 'scale(1)',
             }}
           />
         </button>
