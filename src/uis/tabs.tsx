@@ -28,6 +28,7 @@ const styles = {
     width: '152px',
     height: '66px',
     background: 'transparent',
+    touchAction: 'none' as const,
   },
   tabBarBg: {
     position: 'absolute' as const,
@@ -50,6 +51,7 @@ const styles = {
     outline: 'none',
     height: '100%',
     padding: 0,
+    touchAction: 'none' as const,
   },
   slider: {
     position: 'absolute' as const,
@@ -78,6 +80,7 @@ const styles = {
     objectFit: 'contain' as const,
     filter: 'brightness(0)',
     transition: 'opacity 0.2s ease',
+    pointerEvents: 'none' as const,
   },
   avatarSkeleton: {
     width: '24px',
@@ -86,6 +89,7 @@ const styles = {
     border: '1px solid rgba(0, 0, 0, 0.08)',
     boxSizing: 'border-box' as const,
     transition: 'opacity 0.2s ease',
+    pointerEvents: 'none' as const,
   },
   searchButton: {
     position: 'relative' as const,
@@ -115,12 +119,18 @@ const styles = {
 export const Tabs: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
 
+  const tabBarRef = useRef<HTMLDivElement>(null);
   const pillCenterRef = useRef({ x: 38, y: 33 });
   const pillSizeRef = useRef({ w: 70, h: 58 });
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const lensOverlayRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const isDraggingRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
+  const lastTouchXRef = useRef(0);
+  const touchVelocityRef = useRef(0);
 
   const state = useRef({
     x: 0, tx: 0, vx: 0,
@@ -167,10 +177,83 @@ export const Tabs: React.FC = () => {
       pillSizeRef.current.w = state.current.w;
       pillSizeRef.current.h = 58;
     } else {
-      state.current.intensity = diff > 1 ? 1 : 0.6;
+      state.current.intensity = diff > 1 ? 1 : 0.65;
       state.current.isMoving = true;
       sliderRef.current.style.opacity = '0';
       if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '1';
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    const rect = tabBarRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const touchX = e.clientX - rect.left;
+    lastTouchXRef.current = touchX;
+    touchVelocityRef.current = 0;
+
+    const activeEl = tabRefs.current[state.current.currentIndex];
+    if (!activeEl) return;
+
+    const pillLeft = activeEl.offsetLeft;
+    const pillRight = pillLeft + activeEl.offsetWidth;
+
+    if (touchX >= pillLeft && touchX <= pillRight) {
+      longPressTimerRef.current = window.setTimeout(() => {
+        isDraggingRef.current = true;
+        state.current.isMoving = true;
+
+        if (sliderRef.current) sliderRef.current.style.opacity = '0';
+        if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '1';
+
+        state.current.tsy = 1.45;
+        state.current.tsx = 0.85;
+      }, 180);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      return;
+    }
+
+    const rect = tabBarRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const touchX = e.clientX - rect.left;
+    const dx = touchX - lastTouchXRef.current;
+    touchVelocityRef.current = Math.abs(dx);
+    lastTouchXRef.current = touchX;
+
+    const targetX = Math.max(4, Math.min(148 - state.current.w, touchX - state.current.w / 2));
+    state.current.tx = targetX;
+
+    const speed = Math.min(15, touchVelocityRef.current);
+    if (speed > 1.5) {
+      const stretchFactor = speed / 15;
+      state.current.tsy = 1.45 - stretchFactor * 0.48;
+      state.current.tsx = 0.85 + stretchFactor * 0.35;
+    } else {
+      state.current.tsy = 1.45;
+      state.current.tsx = 0.85;
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      const center = state.current.x + state.current.w / 2;
+      const snapIndex = center < 76 ? 0 : 1;
+      setTarget(snapIndex);
     }
   };
 
@@ -188,18 +271,18 @@ export const Tabs: React.FC = () => {
         const dist = Math.abs(s.x - s.tx);
         const vel = Math.abs(s.vx);
 
-        if (s.isMoving) {
+        if (s.isMoving && !isDraggingRef.current) {
           if (dist > 12) {
             slider.style.opacity = '0';
             if (lens) lens.style.opacity = '1';
 
-            s.tsy = 1 + (0.27 * s.intensity);
-            s.tsx = 1 - (0.10 * s.intensity);
+            s.tsy = 1 + (0.45 * s.intensity);
+            s.tsx = 1 - (0.20 * s.intensity);
           } else if (dist <= 12 && dist > 0.5) {
             slider.style.opacity = '1';
             if (lens) lens.style.opacity = '0';
 
-            s.tsy = 1 - (0.05 * s.intensity);
+            s.tsy = 1 - (0.06 * s.intensity);
             s.tsx = 1 + (0.08 * s.intensity);
           } else {
             s.tsx = 1;
@@ -236,7 +319,14 @@ export const Tabs: React.FC = () => {
 
   return (
     <nav style={styles.navWrapper}>
-      <div style={styles.tabBar}>
+      <div
+        ref={tabBarRef}
+        style={styles.tabBar}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
         <Glass radius={33} />
         <div style={styles.tabBarBg} />
 
@@ -255,7 +345,9 @@ export const Tabs: React.FC = () => {
         <button
           ref={(el) => (tabRefs.current[0] = el)}
           style={styles.tabItem}
-          onClick={() => setTarget(0)}
+          onClick={() => {
+            if (!isDraggingRef.current) setTarget(0);
+          }}
         >
           <img
             src="/mocs/house.png"
@@ -270,7 +362,9 @@ export const Tabs: React.FC = () => {
         <button
           ref={(el) => (tabRefs.current[1] = el)}
           style={styles.tabItem}
-          onClick={() => setTarget(1)}
+          onClick={() => {
+            if (!isDraggingRef.current) setTarget(1);
+          }}
         >
           <div
             className="shimmer"
