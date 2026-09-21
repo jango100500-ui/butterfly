@@ -18,6 +18,7 @@ const styles = {
     justifyContent: 'center',
     width: '100%',
     maxWidth: '320px',
+    transform: 'translateY(-24px)',
   },
   imageWrapper: {
     width: '240px',
