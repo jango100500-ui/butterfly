@@ -1,0 +1,236 @@
+import React, { useEffect, useRef, useState } from 'react';
+
+const PHYSICS = {
+  pos: { k: 380, d: 38, m: 1 },
+  scale: { k: 420, d: 24, m: 1 }
+};
+
+const styles = {
+  navWrapper: {
+    position: 'absolute' as const,
+    bottom: '24px',
+    left: '0',
+    width: '100%',
+    padding: '0 20px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    pointerEvents: 'none' as const,
+    zIndex: 10,
+  },
+  tabBar: {
+    position: 'relative' as const,
+    background: 'rgba(242, 242, 247, 0.82)',
+    backdropFilter: 'blur(25px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
+    borderRadius: '34px',
+    display: 'flex',
+    padding: '4px',
+    border: '0.5px solid rgba(0, 0, 0, 0.08)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+    pointerEvents: 'auto' as const,
+    width: '136px',
+    height: '56px',
+  },
+  tabItem: {
+    position: 'relative' as const,
+    zIndex: 2,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'none',
+    border: 'none',
+    flex: 1,
+    cursor: 'pointer',
+    outline: 'none',
+    height: '100%',
+    padding: 0,
+  },
+  slider: {
+    position: 'absolute' as const,
+    top: '4px',
+    left: '4px',
+    height: 'calc(100% - 8px)',
+    background: 'rgba(0, 0, 0, 0.06)',
+    borderRadius: '28px',
+    zIndex: 1,
+    pointerEvents: 'none' as const,
+    transformOrigin: 'center center',
+    boxSizing: 'border-box' as const,
+    border: '1px solid transparent',
+    willChange: 'transform, left, width, background-color, border-color',
+    transition: 'background-color 0.16s ease-out, border-color 0.16s ease-out',
+  },
+  icon: {
+    width: '24px',
+    height: '24px',
+    objectFit: 'contain' as const,
+  },
+  avatarSkeleton: {
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+  },
+  searchButton: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '50%',
+    background: 'rgba(242, 242, 247, 0.82)',
+    backdropFilter: 'blur(25px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
+    border: '0.5px solid rgba(0, 0, 0, 0.08)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    pointerEvents: 'auto' as const,
+    outline: 'none',
+    padding: 0,
+  }
+};
+
+export const Tabs: React.FC = () => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const state = useRef({
+    x: 0, tx: 0, vx: 0,
+    w: 0, tw: 0, vw: 0,
+    sx: 1, tsx: 1, vsx: 0,
+    sy: 1, tsy: 1, vsy: 0,
+    isMoving: false,
+    intensity: 1,
+    currentIndex: 0
+  });
+
+  const spring = (current: number, target: number, velocity: number, config: { k: number; d: number; m: number }) => {
+    const force = -config.k * (current - target);
+    const damping = -config.d * velocity;
+    const acceleration = (force + damping) / config.m;
+    velocity += acceleration * 0.016;
+    current += velocity * 0.016;
+    return [current, velocity];
+  };
+
+  const setTarget = (idx: number, instant = false) => {
+    const el = tabRefs.current[idx];
+    if (!el || !sliderRef.current) return;
+
+    const diff = Math.abs(idx - (state.current.currentIndex || 0));
+    setActiveIndex(idx);
+
+    state.current.tx = el.offsetLeft;
+    state.current.tw = el.offsetWidth;
+    state.current.currentIndex = idx;
+
+    if (instant) {
+      state.current.x = state.current.tx;
+      state.current.w = state.current.tw;
+      state.current.sx = 1;
+      state.current.sy = 1;
+      sliderRef.current.style.left = `${state.current.x}px`;
+      sliderRef.current.style.width = `${state.current.w}px`;
+      sliderRef.current.style.transform = `scale(1, 1)`;
+    } else {
+      state.current.intensity = diff > 1 ? 1 : 0.6;
+      state.current.isMoving = true;
+    }
+  };
+
+  useEffect(() => {
+    setTarget(0, true);
+
+    let rafId: number;
+
+    const update = () => {
+      const s = state.current;
+      const slider = sliderRef.current;
+
+      if (slider) {
+        const dist = Math.abs(s.x - s.tx);
+        const vel = Math.abs(s.vx);
+
+        if (s.isMoving) {
+          if (dist > 8) {
+            slider.style.backgroundColor = 'transparent';
+            slider.style.borderColor = 'rgba(0, 0, 0, 0.18)';
+            s.tsy = 1 + (0.27 * s.intensity);
+            s.tsx = 1 - (0.10 * s.intensity);
+          } else if (dist <= 8 && dist > 0.5) {
+            slider.style.backgroundColor = 'rgba(0, 0, 0, 0.06)';
+            slider.style.borderColor = 'transparent';
+            s.tsy = 1 - (0.05 * s.intensity);
+            s.tsx = 1 + (0.08 * s.intensity);
+          } else {
+            s.tsx = 1;
+            s.tsy = 1;
+            if (vel < 0.2 && Math.abs(s.vsx) < 0.2) {
+              s.isMoving = false;
+              slider.style.backgroundColor = 'rgba(0, 0, 0, 0.06)';
+              slider.style.borderColor = 'transparent';
+            }
+          }
+        }
+
+        [s.x, s.vx] = spring(s.x, s.tx, s.vx, PHYSICS.pos);
+        [s.w, s.vw] = spring(s.w, s.tw, s.vw, PHYSICS.pos);
+        [s.sx, s.vsx] = spring(s.sx, s.tsx, s.vsx, PHYSICS.scale);
+        [s.sy, s.vsy] = spring(s.sy, s.tsy, s.vsy, PHYSICS.scale);
+
+        slider.style.left = `${s.x}px`;
+        slider.style.width = `${s.w}px`;
+        slider.style.transform = `scale(${s.sx}, ${s.sy})`;
+      }
+
+      rafId = requestAnimationFrame(update);
+    };
+
+    rafId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  return (
+    <nav style={styles.navWrapper}>
+      <div style={styles.tabBar}>
+        <div ref={sliderRef} style={styles.slider} />
+        
+        <button
+          ref={(el) => (tabRefs.current[0] = el)}
+          style={styles.tabItem}
+          onClick={() => setTarget(0)}
+        >
+          <img 
+            src="/mocs/house.png" 
+            alt="Home" 
+            style={{ 
+              ...styles.icon, 
+              opacity: activeIndex === 0 ? 1 : 0.45, 
+              transition: 'opacity 0.2s ease' 
+            }} 
+          />
+        </button>
+
+        <button
+          ref={(el) => (tabRefs.current[1] = el)}
+          style={styles.tabItem}
+          onClick={() => setTarget(1)}
+        >
+          <div 
+            className="shimmer" 
+            style={{ 
+              ...styles.avatarSkeleton, 
+              opacity: activeIndex === 1 ? 1 : 0.45, 
+              transition: 'opacity 0.2s ease' 
+            }} 
+          />
+        </button>
+      </div>
+
+      <button style={styles.searchButton}>
+        <img src="/mocs/search.png" alt="Search" style={styles.icon} />
+      </button>
+    </nav>
+  );
+};
