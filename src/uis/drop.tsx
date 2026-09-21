@@ -30,15 +30,15 @@ const styles = {
   },
   itemCard: {
     position: 'absolute' as const,
-    width: '180px',
-    maxHeight: '220px',
-    borderRadius: '22px',
+    width: '220px',
+    height: '220px',
+    borderRadius: '24px',
     overflow: 'hidden',
-    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.18), 0 6px 16px rgba(0, 0, 0, 0.08)',
-    border: '1.5px solid rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.22), 0 6px 18px rgba(0, 0, 0, 0.08)',
+    border: '2px solid rgba(255, 255, 255, 0.95)',
     background: '#FFFFFF',
     pointerEvents: 'none' as const,
-    zIndex: 5, // Летит ПОВЕРХ фона, но ПОД таббаром
+    zIndex: 5,
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
@@ -49,14 +49,12 @@ const styles = {
   image: {
     width: '100%',
     height: '100%',
-    maxHeight: '220px',
     objectFit: 'cover' as const,
     display: 'block',
   },
   video: {
     width: '100%',
     height: '100%',
-    maxHeight: '220px',
     objectFit: 'cover' as const,
     display: 'block',
   },
@@ -70,22 +68,22 @@ const styles = {
     width: '100%',
   },
   fileName: {
-    fontSize: '13px',
+    fontSize: '14px',
     fontWeight: 600,
     color: '#000000',
-    marginTop: '8px',
+    marginTop: '10px',
     wordBreak: 'break-word' as const,
-    maxWidth: '140px',
+    maxWidth: '160px',
   },
   fileIcon: {
-    width: '40px',
-    height: '40px',
+    width: '44px',
+    height: '44px',
     borderRadius: '12px',
     background: '#F2F2F7',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '20px',
+    fontSize: '22px',
   }
 };
 
@@ -100,13 +98,15 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
     const newItems: FallingItem[] = Array.from(files).map((file) => {
       const url = URL.createObjectURL(file);
       const mime = file.type;
-      
+
       const itemType: 'image' | 'video' | 'file' = mime.startsWith('video/')
         ? 'video'
-        : mime.startsWith('image/') ? 'image' : 'file';
+        : mime.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp|heic)/i)
+        ? 'image'
+        : 'file';
 
-      const cardWidth = 180;
-      const cardHeight = 180;
+      const cardWidth = 220;
+      const cardHeight = 220;
 
       const posX = clientX > 0 ? clientX : window.innerWidth / 2;
       const posY = clientY > 0 ? clientY : window.innerHeight / 2 - 40;
@@ -121,13 +121,13 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
         type: itemType,
         x: clampedX,
         y: clampedY,
-        vx: (Math.random() - 0.5) * 1.2,
-        vy: -1.2,
-        rot: (Math.random() - 0.5) * 3,
-        vRot: (Math.random() - 0.5) * 0.25,
-        scale: 0.95,
-        opacity: 0.0,
-        hoverFrames: 50, // Висит в воздухе ~0.8 секунды
+        vx: (Math.random() - 0.5) * 1.0,
+        vy: -0.6,
+        rot: (Math.random() - 0.5) * 4,
+        vRot: (Math.random() - 0.5) * 0.2,
+        scale: 0.7,
+        opacity: 1.0,
+        hoverFrames: 180,
       };
     });
 
@@ -150,7 +150,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
     const centerX = window.innerWidth / 2;
     const centerY = window.innerHeight / 2 - 40;
     handleFiles(e.target.files, centerX, centerY);
-    e.target.value = ''; // Сбрасываем инпут
+    e.target.value = '';
   };
 
   useEffect(() => {
@@ -161,22 +161,19 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
         setItems((prevItems) => {
           return prevItems
             .map((item) => {
-              // Плавное проявление
-              const nextOpacity = Math.min(1.0, item.opacity + 0.15);
+              const nextScale = Math.min(1.0, item.scale + 0.05);
 
-              // Парение в воздухе
               if (item.hoverFrames > 0) {
                 return {
                   ...item,
-                  y: item.y + item.vy * 0.12,
-                  rot: item.rot + item.vRot * 0.15,
-                  opacity: nextOpacity,
+                  y: item.y + item.vy * 0.08,
+                  rot: item.rot + item.vRot * 0.1,
+                  scale: nextScale,
                   hoverFrames: item.hoverFrames - 1,
                 };
               }
 
-              // Падение с гравитацией
-              const nextVy = item.vy + 0.55;
+              const nextVy = item.vy + 0.48;
               const nextY = item.y + nextVy;
               const nextX = item.x + item.vx;
               const nextRot = item.rot + item.vRot;
@@ -187,13 +184,13 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
                 y: nextY,
                 vy: nextVy,
                 rot: nextRot,
-                opacity: nextOpacity,
+                scale: nextScale,
               };
             })
             .filter((item) => {
-              const isAlive = item.y < window.innerHeight + 200;
+              const isAlive = item.y < window.innerHeight + 300;
               if (!isAlive) {
-                URL.revokeObjectURL(item.url); // Чистим память
+                URL.revokeObjectURL(item.url);
               }
               return isAlive;
             });
@@ -214,10 +211,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
       onDragEnter={onDragOver}
       onDrop={onDrop}
     >
-      {/* Нативный скрытый инпут. Работает как швейцарские часы на iOS */}
       <input
         id="file-upload"
         type="file"
+        accept="image/*,video/*"
         multiple
         style={{ display: 'none' }}
         onChange={onInputChange}
@@ -225,7 +222,6 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
 
       {children}
 
-      {/* Рендеринг падающих файлов */}
       {items.map((item) => (
         <div
           key={item.id}
