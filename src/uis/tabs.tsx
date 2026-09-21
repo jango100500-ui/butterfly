@@ -73,8 +73,6 @@ const styles = {
     zIndex: 3,
     pointerEvents: 'none' as const,
     opacity: 0,
-    backdropFilter: 'blur(1.5px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(1.5px) saturate(180%)',
   },
   icon: {
     width: '24px',
@@ -290,7 +288,7 @@ export const Tabs: React.FC = () => {
             slider.style.opacity = '0';
             if (lens) lens.style.opacity = '1';
 
-            s.tsy = 1 + (0.42 * s.intensity);
+            s.tsy = 1 + (0.38 * s.intensity);
             s.tsx = 1.0;
           } else if (dist <= 12 && dist > 0.5) {
             slider.style.opacity = '1';
