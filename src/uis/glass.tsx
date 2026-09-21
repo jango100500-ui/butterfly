@@ -83,8 +83,8 @@ void main() {
   float sd = sdRoundedRect(p, halfSize, safeRadius);
 
   if (sd > 0.0) {
-    float shadowFalloff = exp(-sd * sd / 500.0);
-    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.55);
+    float shadowFalloff = exp(-sd * sd / 350.0);
+    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.25);
     return;
   }
 
@@ -120,17 +120,14 @@ void main() {
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
   color += vec3(specHighlight * uSpecular * uRimGlow);
 
-  float innerShadow = 1.0 - smoothstep(0.0, bezel * 0.6, distFromEdge);
-  color *= mix(1.0, 0.7, innerShadow * 0.3);
+  float edgeLine = 1.0 - smoothstep(0.0, 1.2, distFromEdge);
+  color += vec3(edgeLine * uSpecular * 0.45);
 
-  float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
-  color += vec3(edgeLine * uSpecular * 0.34);
-
-  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
-  color += vec3(innerRim * 0.055 * uSpecular);
+  float innerRim = smoothstep(0.3, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.0, distFromEdge));
+  color += vec3(innerRim * 0.08 * uSpecular);
 
   color = mix(color, vec3(1.0), uTint);
-  float alpha = smoothstep(0.0, 1.5, distFromEdge);
+  float alpha = smoothstep(0.0, 1.0, distFromEdge);
 
   gl_FragColor = vec4(color, alpha);
 }
@@ -150,7 +147,7 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const margin = noShadow ? 0 : 32;
+    const margin = noShadow ? 0 : 20;
 
     let baseW = container.clientWidth || 1;
     let baseH = container.clientHeight || 1;
@@ -169,7 +166,7 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     const defaultTexture = new THREE.DataTexture(
-      new Uint8Array([255, 255, 255, 255]),
+      new Uint8Array([245, 245, 247, 255]),
       1,
       1,
       THREE.RGBAFormat
@@ -192,7 +189,7 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
       uSpecular: { value: 0.52 },
       uRimGlow: { value: 0.03 },
       uTint: { value: 0.07 },
-      uShadow: { value: noShadow ? 0.0 : 0.30 },
+      uShadow: { value: noShadow ? 0.0 : 0.06 },
       uBgTex: { value: defaultTexture },
       uBgAspect: { value: 1.0 },
     };
@@ -242,7 +239,7 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
     };
   }, [radius, noShadow]);
 
-  const margin = noShadow ? 0 : 32;
+  const margin = noShadow ? 0 : 20;
 
   return (
     <div
