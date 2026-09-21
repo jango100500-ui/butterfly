@@ -83,8 +83,8 @@ void main() {
   float sd = sdRoundedRect(p, halfSize, safeRadius);
 
   if (sd > 0.0) {
-    float shadowFalloff = exp(-sd * sd / 800.0);
-    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.6);
+    float shadowFalloff = exp(-sd * sd / 500.0);
+    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.55);
     return;
   }
 
@@ -150,8 +150,12 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    let width = container.clientWidth || 1;
-    let height = container.clientHeight || 1;
+    const margin = noShadow ? 0 : 32;
+
+    let baseW = container.clientWidth || 1;
+    let baseH = container.clientHeight || 1;
+    let totalW = baseW + margin * 2;
+    let totalH = baseH + margin * 2;
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
@@ -159,26 +163,30 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
       antialias: false,
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(width, height);
+    renderer.setSize(totalW, totalH);
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     const defaultTexture = new THREE.DataTexture(
-      new Uint8Array([248, 248, 250, 255]),
+      new Uint8Array([255, 255, 255, 255]),
       1,
       1,
       THREE.RGBAFormat
     );
     defaultTexture.needsUpdate = true;
 
+    const scale = Math.min(baseW, baseH) / 280;
+    const scaledBezel = Math.max(8.0, 48.0 * scale);
+    const scaledThickness = Math.max(12.0, 62.0 * scale);
+
     const uniforms = {
-      uResolution: { value: new THREE.Vector2(width, height) },
-      uGlassCenter: { value: new THREE.Vector2(width / 2, height / 2) },
-      uGlassSize: { value: new THREE.Vector2(width, height) },
+      uResolution: { value: new THREE.Vector2(totalW, totalH) },
+      uGlassCenter: { value: new THREE.Vector2(totalW / 2, totalH / 2) },
+      uGlassSize: { value: new THREE.Vector2(baseW, baseH) },
       uRadius: { value: radius },
-      uBezel: { value: 48.0 },
-      uThickness: { value: 62.0 },
+      uBezel: { value: scaledBezel },
+      uThickness: { value: scaledThickness },
       uIOR: { value: 2.7 },
       uBlur: { value: 2.0 },
       uSpecular: { value: 0.52 },
@@ -203,15 +211,21 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
 
     const render = () => {
       if (container) {
-        const currentW = container.clientWidth;
-        const currentH = container.clientHeight;
-        if (currentW > 0 && currentH > 0 && (currentW !== width || currentH !== height)) {
-          width = currentW;
-          height = currentH;
-          renderer.setSize(width, height);
-          uniforms.uResolution.value.set(width, height);
-          uniforms.uGlassCenter.value.set(width / 2, height / 2);
-          uniforms.uGlassSize.value.set(width, height);
+        const curW = container.clientWidth;
+        const curH = container.clientHeight;
+        if (curW > 0 && curH > 0 && (curW !== baseW || curH !== baseH)) {
+          baseW = curW;
+          baseH = curH;
+          totalW = baseW + margin * 2;
+          totalH = baseH + margin * 2;
+          renderer.setSize(totalW, totalH);
+          uniforms.uResolution.value.set(totalW, totalH);
+          uniforms.uGlassCenter.value.set(totalW / 2, totalH / 2);
+          uniforms.uGlassSize.value.set(baseW, baseH);
+
+          const curScale = Math.min(baseW, baseH) / 280;
+          uniforms.uBezel.value = Math.max(8.0, 48.0 * curScale);
+          uniforms.uThickness.value = Math.max(12.0, 62.0 * curScale);
         }
       }
       renderer.render(scene, camera);
@@ -228,6 +242,8 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
     };
   }, [radius, noShadow]);
 
+  const margin = noShadow ? 0 : 32;
+
   return (
     <div
       ref={containerRef}
@@ -239,16 +255,20 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
         height: '100%',
         pointerEvents: 'none',
         borderRadius: 'inherit',
-        overflow: 'hidden',
-        boxShadow: noShadow
-          ? 'none'
-          : '0 14px 40px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.55)',
-        border: '1px solid rgba(255, 255, 255, 0.45)',
-        backdropFilter: 'blur(20px) saturate(170%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(170%)',
       }}
     >
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          top: -margin,
+          left: -margin,
+          width: `calc(100% + ${margin * 2}px)`,
+          height: `calc(100% + ${margin * 2}px)`,
+          display: 'block',
+          pointerEvents: 'none',
+        }}
+      />
     </div>
   );
 };
