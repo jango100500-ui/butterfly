@@ -118,9 +118,9 @@ void main() {
     color *= mix(1.0, 0.7, innerShadow * 0.3);
   }
 
-  float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
+  float edgeLine = 1.0 - smoothstep(0.0, uIsPill > 0.5 ? 0.4 : 0.8, distFromEdge);
   if (uIsPill > 0.5) {
-    color = mix(color, vec3(0.0), edgeLine * 0.3);
+    color = mix(color, vec3(0.0), edgeLine * 0.22);
   } else {
     color += vec3(edgeLine * uSpecular * 0.34);
   }
