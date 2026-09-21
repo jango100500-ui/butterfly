@@ -110,45 +110,37 @@ void main() {
   grad.y = sdRoundedRect(p + vec2(0.0, eps), halfSize, safeRadius) - sd;
   grad = normalize(grad);
 
-  // Освещение (идентично для обоих режимов)
+  vec2 offset = -grad * displacement / uResolution;
+  vec2 screenUV = screenPx / uResolution;
+
+  vec3 color = sampleBgBlurred(screenUV + offset, uBlur);
+
   vec2 lightDir = normalize(vec2(0.5, -0.7));
   float rimDot = abs(dot(grad, lightDir));
   float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.4, distFromEdge);
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
+  color += vec3(specHighlight * uSpecular * uRimGlow);
+
+  if (uIsPill < 0.5) {
+    float innerShadow = 1.0 - smoothstep(0.0, bezel * 0.6, distFromEdge);
+    color *= mix(1.0, 0.7, innerShadow * 0.3);
+  }
+
   float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
-  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
-  float baseAlpha = smoothstep(0.0, 1.5, distFromEdge);
 
   if (uIsPill > 0.5) {
-    // РЕЖИМ ПИЛЮЛИ (Прозрачная база для HTML-иконок + блики и темный контур)
-    vec3 finalColor = vec3(0.0);
-    float finalAlpha = 0.0;
-    
-    // Темный контур из референса
-    finalColor = mix(finalColor, vec3(0.0), edgeLine);
-    finalAlpha = max(finalAlpha, edgeLine * 0.35);
-    
-    // Спекулярные блики
-    finalColor += vec3(1.0) * specHighlight * uSpecular;
-    finalAlpha = max(finalAlpha, specHighlight * uSpecular);
-    
-    finalColor += vec3(1.0) * innerRim * 0.055 * uSpecular;
-    finalAlpha = max(finalAlpha, innerRim * 0.055 * uSpecular);
-    
-    gl_FragColor = vec4(finalColor, finalAlpha * baseAlpha);
+    color = mix(color, vec3(0.0), edgeLine * 0.3);
   } else {
-    // РЕЖИМ ТАББАРА И КНОПКИ (Оригинальное стекло с заливкой)
-    vec2 offset = -grad * displacement / uResolution;
-    vec2 screenUV = (screenPx / uResolution);
-    vec3 color = sampleBgBlurred(screenUV + offset, uBlur);
-    
-    color += vec3(specHighlight * uSpecular * uRimGlow);
     color += vec3(edgeLine * uSpecular * 0.34);
-    color += vec3(innerRim * 0.055 * uSpecular);
-    color = mix(color, vec3(1.0), uTint);
-    
-    gl_FragColor = vec4(color, baseAlpha);
   }
+
+  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
+  color += vec3(innerRim * 0.055 * uSpecular);
+
+  color = mix(color, vec3(1.0), uTint);
+  float alpha = smoothstep(0.0, 1.5, distFromEdge);
+
+  gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -156,11 +148,26 @@ interface GlassProps {
   radius?: number;
   noShadow?: boolean;
   isPill?: boolean;
+  bgTexture?: THREE.Texture | null;
+  center?: { x: number; y: number };
+  size?: { w: number; h: number };
 }
 
-export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, isPill = false }) => {
+export const Glass: React.FC<GlassProps> = ({
+  radius = 33,
+  noShadow = false,
+  isPill = false,
+  bgTexture = null,
+  center,
+  size
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const centerRef = useRef(center);
+  const sizeRef = useRef(size);
+
+  centerRef.current = center;
+  sizeRef.current = size;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -185,18 +192,26 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, isP
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    const defaultTexture = new THREE.DataTexture(
+    const fallbackTexture = new THREE.DataTexture(
       new Uint8Array([245, 245, 247, 255]),
       1,
       1,
       THREE.RGBAFormat
     );
-    defaultTexture.needsUpdate = true;
+    fallbackTexture.needsUpdate = true;
+
+    const initialCenter = centerRef.current
+      ? new THREE.Vector2(centerRef.current.x + margin, centerRef.current.y + margin)
+      : new THREE.Vector2(totalW / 2, totalH / 2);
+
+    const initialSize = sizeRef.current
+      ? new THREE.Vector2(sizeRef.current.w, sizeRef.current.h)
+      : new THREE.Vector2(baseW, baseH);
 
     const uniforms = {
       uResolution: { value: new THREE.Vector2(totalW, totalH) },
-      uGlassCenter: { value: new THREE.Vector2(totalW / 2, totalH / 2) },
-      uGlassSize: { value: new THREE.Vector2(baseW, baseH) },
+      uGlassCenter: { value: initialCenter },
+      uGlassSize: { value: initialSize },
       uRadius: { value: radius },
       uThickness: { value: 62.0 },
       uBezel: { value: 48.0 },
@@ -207,8 +222,8 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, isP
       uTint: { value: 0.07 },
       uShadow: { value: noShadow ? 0.0 : 0.08 },
       uIsPill: { value: isPill ? 1.0 : 0.0 },
-      uBgTex: { value: defaultTexture },
-      uBgAspect: { value: 1.0 },
+      uBgTex: { value: bgTexture || fallbackTexture },
+      uBgAspect: { value: totalW / totalH },
     };
 
     const material = new THREE.ShaderMaterial({
@@ -234,10 +249,25 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, isP
           totalH = baseH + margin * 2;
           renderer.setSize(totalW, totalH);
           uniforms.uResolution.value.set(totalW, totalH);
+          uniforms.uBgAspect.value = totalW / totalH;
+        }
+
+        if (centerRef.current) {
+          uniforms.uGlassCenter.value.set(
+            centerRef.current.x + margin,
+            centerRef.current.y + margin
+          );
+        } else {
           uniforms.uGlassCenter.value.set(totalW / 2, totalH / 2);
+        }
+
+        if (sizeRef.current) {
+          uniforms.uGlassSize.value.set(sizeRef.current.w, sizeRef.current.h);
+        } else {
           uniforms.uGlassSize.value.set(baseW, baseH);
         }
       }
+
       renderer.render(scene, camera);
       animationFrameId = requestAnimationFrame(render);
     };
@@ -248,9 +278,9 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, isP
       cancelAnimationFrame(animationFrameId);
       renderer.dispose();
       material.dispose();
-      defaultTexture.dispose();
+      fallbackTexture.dispose();
     };
-  }, [radius, noShadow, isPill]);
+  }, [radius, noShadow, isPill, bgTexture]);
 
   const margin = noShadow ? 0 : 20;
 
