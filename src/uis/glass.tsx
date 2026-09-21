@@ -111,11 +111,12 @@ void main() {
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
   color += vec3(specHighlight * uSpecular * uRimGlow);
 
-  float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
   if (uIsPill > 0.5) {
-    color = mix(color, vec3(0.0), edgeLine * 0.25);
+    float edgeLinePill = 1.0 - smoothstep(0.0, 1.85, distFromEdge);
+    color = mix(color, vec3(0.0), edgeLinePill * 0.42);
   } else {
-    color += vec3(edgeLine * uSpecular * 0.34);
+    float edgeLineBar = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
+    color += vec3(edgeLineBar * uSpecular * 0.34);
   }
 
   float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
