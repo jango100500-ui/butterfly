@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface FallingItem {
   id: string;
@@ -37,7 +38,7 @@ const styles = {
     border: '1.5px solid rgba(255, 255, 255, 0.95)',
     background: '#FFFFFF',
     pointerEvents: 'none' as const,
-    zIndex: 5,
+    zIndex: 9999, // Гарантированно поверх всего, кроме таббара
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
@@ -93,8 +94,6 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
   const itemsRef = useRef<FallingItem[]>([]);
   itemsRef.current = items;
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const spawnItemFromUrl = (url: string, name: string, mime: string, clientX: number, clientY: number) => {
     const itemType: 'image' | 'video' | 'file' = mime.startsWith('video/')
       ? 'video'
@@ -131,76 +130,58 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
   };
 
   const spawnItemFromFile = (file: File, clientX: number, clientY: number) => {
-    const url = URL.createObjectURL(file);
-    spawnItemFromUrl(url, file.name, file.type, clientX, clientY);
+    // Используем FileReader для надежности в Safari
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const url = e.target?.result as string;
+      if (url) spawnItemFromUrl(url, file.name, file.type, clientX, clientY);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleDragEnter = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy';
-    }
-  };
+  useEffect(() => {
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy';
-    }
-  };
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+      const clientX = e.clientX || 0;
+      const clientY = e.clientY || 0;
 
-    const clientX = e.clientX || 0;
-    const clientY = e.clientY || 0;
-
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      for (let i = 0; i < e.dataTransfer.items.length; i++) {
-        const item = e.dataTransfer.items[i];
-        if (item.kind === 'file') {
-          const file = item.getAsFile();
-          if (file) {
-            spawnItemFromFile(file, clientX, clientY);
-            return;
+      if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+          const item = e.dataTransfer.items[i];
+          if (item.kind === 'file') {
+            const file = item.getAsFile();
+            if (file) {
+              spawnItemFromFile(file, clientX, clientY);
+              return;
+            }
           }
         }
       }
-    }
 
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      spawnItemFromFile(e.dataTransfer.files[0], clientX, clientY);
-      return;
-    }
-
-    const uri = e.dataTransfer.getData('text/uri-list');
-    if (uri) {
-      spawnItemFromUrl(uri, 'image.jpg', 'image/jpeg', clientX, clientY);
-      return;
-    }
-
-    const html = e.dataTransfer.getData('text/html');
-    if (html) {
-      const match = html.match(/src\s*=\s*"([^"]+)"/i);
-      if (match && match[1]) {
-        spawnItemFromUrl(match[1], 'image.jpg', 'image/jpeg', clientX, clientY);
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        spawnItemFromFile(e.dataTransfer.files[0], clientX, clientY);
+        return;
       }
-    }
-  };
+    };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    window.addEventListener('dragover', handleDragOver, { passive: false });
+    window.addEventListener('drop', handleDrop, { passive: false });
 
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2 - 40;
-    spawnItemFromFile(files[0], centerX, centerY);
-
-    e.target.value = '';
-  };
+    return () => {
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, []);
 
   useEffect(() => {
     let rafId: number;
@@ -236,13 +217,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
                 rot: nextRot,
               };
             })
-            .filter((item) => {
-              const isAlive = item.y < window.innerHeight + 260;
-              if (!isAlive && item.url.startsWith('blob:')) {
-                URL.revokeObjectURL(item.url);
-              }
-              return isAlive;
-            });
+            .filter((item) => item.y < window.innerHeight + 260);
 
           return nextItems;
         });
@@ -256,54 +231,46 @@ export const DropZone: React.FC<DropZoneProps> = ({ children }) => {
   }, []);
 
   return (
-    <div
-      style={styles.container}
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-    >
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        style={{ display: 'none' }}
-        onChange={handleFileInputChange}
-      />
-
+    <div style={styles.container}>
       {children}
 
-      {items.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            ...styles.itemCard,
-            transform: `translate3d(${item.x}px, ${item.y}px, 0) rotate(${item.rot}deg) scale(${item.scale})`,
-            opacity: item.opacity,
-          }}
-        >
-          {item.type === 'image' && (
-            <img src={item.url} alt={item.name} style={styles.image} />
-          )}
+      {/* Рендерим летящие карточки в корень body, чтобы они гарантированно были поверх всего */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          items.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                ...styles.itemCard,
+                transform: `translate3d(${item.x}px, ${item.y}px, 0) rotate(${item.rot}deg) scale(${item.scale})`,
+                opacity: item.opacity,
+              }}
+            >
+              {item.type === 'image' && (
+                <img src={item.url} alt={item.name} style={styles.image} />
+              )}
 
-          {item.type === 'video' && (
-            <video
-              src={item.url}
-              autoPlay
-              muted
-              loop
-              playsInline
-              style={styles.video}
-            />
-          )}
+              {item.type === 'video' && (
+                <video
+                  src={item.url}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  style={styles.video}
+                />
+              )}
 
-          {item.type === 'file' && (
-            <div style={styles.fileBox}>
-              <div style={styles.fileIcon}>📄</div>
-              <span style={styles.fileName}>{item.name}</span>
+              {item.type === 'file' && (
+                <div style={styles.fileBox}>
+                  <div style={styles.fileIcon}>📄</div>
+                  <span style={styles.fileName}>{item.name}</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ))}
+          )),
+          document.body
+        )}
     </div>
   );
 };
