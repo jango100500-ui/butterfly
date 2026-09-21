@@ -113,11 +113,6 @@ void main() {
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
   color += vec3(specHighlight * uSpecular * uRimGlow);
 
-  if (uIsPill < 0.5) {
-    float innerShadow = 1.0 - smoothstep(0.0, bezel * 0.6, distFromEdge);
-    color *= mix(1.0, 0.7, innerShadow * 0.3);
-  }
-
   float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
   if (uIsPill > 0.5) {
     color = mix(color, vec3(0.0), edgeLine * 0.25);
