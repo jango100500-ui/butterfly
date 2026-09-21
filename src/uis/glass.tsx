@@ -90,9 +90,15 @@ void main() {
 
   vec2 grad;
   float eps = 0.5;
-  grad.x = sdRoundedRect(p + vec2(eps, 0.0), halfSize, safeRadius) - sd;
-  grad.y = sdRoundedRect(p + vec2(0.0, eps), halfSize, safeRadius) - sd;
-  grad = normalize(grad);
+  grad.x = sdRoundedRect(p + vec2(eps, 0.0), halfSize, safeRadius) - sdRoundedRect(p - vec2(eps, 0.0), halfSize, safeRadius);
+  grad.y = sdRoundedRect(p + vec2(0.0, eps), halfSize, safeRadius) - sdRoundedRect(p - vec2(0.0, eps), halfSize, safeRadius);
+  
+  float gradLen = length(grad);
+  if (gradLen > 0.0001) {
+    grad /= gradLen;
+  } else {
+    grad = vec2(0.0, 0.0);
+  }
 
   vec2 offsetPx = -grad * displacement;
   vec2 samplePos = screenPx + offsetPx;
@@ -145,7 +151,7 @@ export const Glass: React.FC<GlassProps> = ({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const margin = noShadow ? 0 : 20;
+    const margin = noShadow ? 30 : 20;
 
     let baseW = container.clientWidth || 1;
     let baseH = container.clientHeight || 1;
@@ -248,7 +254,7 @@ export const Glass: React.FC<GlassProps> = ({
     };
   }, [radius, noShadow, isPill, centerRef, sizeRef]);
 
-  const margin = noShadow ? 0 : 20;
+  const margin = noShadow ? 30 : 20;
 
   return (
     <div
