@@ -43,19 +43,11 @@ vec3 sampleBackground(vec2 px) {
 
   if (uIsPill > 0.5) {
     vec2 houseDelta = px - vec2(38.0, 33.0);
-    if (abs(houseDelta.x) <= 12.0 && abs(houseDelta.y) <= 12.0) {
-      vec2 iconUv = (houseDelta + 12.0) / 24.0;
+    if (abs(houseDelta.x) < 11.5 && abs(houseDelta.y) < 11.5) {
+      vec2 iconUv = clamp((houseDelta + 12.0) / 24.0, 0.01, 0.99);
       iconUv.y = 1.0 - iconUv.y;
       vec4 iconColor = texture2D(uHouseTex, iconUv);
       bg = mix(bg, vec3(0.0), iconColor.a);
-    }
-
-    float profileDist = length(px - vec2(114.0, 33.0));
-    if (profileDist <= 12.0) {
-      bg = vec3(0.898, 0.898, 0.918);
-      if (profileDist >= 11.0) {
-        bg = mix(bg, vec3(0.0), 0.08);
-      }
     }
   }
 
