@@ -26,6 +26,7 @@ uniform float uRimGlow;
 uniform float uTint;
 uniform float uShadow;
 uniform float uIsPill;
+uniform sampler2D uHouseTex;
 
 float sdRoundedRect(vec2 p, vec2 halfSize, float r) {
   vec2 q = abs(p) - halfSize + r;
@@ -35,6 +36,30 @@ float sdRoundedRect(vec2 p, vec2 halfSize, float r) {
 float surfaceHeight(float t) {
   float s = 1.0 - t;
   return pow(1.0 - s * s * s * s, 0.25);
+}
+
+vec3 sampleBackground(vec2 px) {
+  vec3 bg = vec3(0.9608, 0.9608, 0.9686);
+
+  if (uIsPill > 0.5) {
+    vec2 houseDelta = px - vec2(38.0, 33.0);
+    if (abs(houseDelta.x) <= 12.0 && abs(houseDelta.y) <= 12.0) {
+      vec2 iconUv = clamp((houseDelta + 12.0) / 24.0, 0.0, 1.0);
+      iconUv.y = 1.0 - iconUv.y;
+      vec4 iconColor = texture2D(uHouseTex, iconUv);
+      bg = mix(bg, vec3(0.0), iconColor.a);
+    }
+
+    float profileDist = length(px - vec2(114.0, 33.0));
+    if (profileDist <= 12.0) {
+      bg = vec3(0.898, 0.898, 0.918);
+      if (profileDist >= 11.0) {
+        bg = mix(bg, vec3(0.0), 0.08);
+      }
+    }
+  }
+
+  return bg;
 }
 
 void main() {
@@ -60,50 +85,50 @@ void main() {
   float bezel = min(uBezel, min(safeRadius, min(halfSize.x, halfSize.y)) - 1.0);
   bezel = max(bezel, 1.0);
 
+  float t = clamp(distFromEdge / bezel, 0.0, 1.0);
+  float h = surfaceHeight(t);
+  float dt = 0.001;
+  float h2 = surfaceHeight(min(t + dt, 1.0));
+  float dh = (h2 - h) / dt;
+
+  float slopeAngle = atan(dh * (uThickness / bezel));
+  float sinR = clamp(sin(slopeAngle) / uIOR, -1.0, 1.0);
+  float thetaR = asin(sinR);
+  float displacement = h * uThickness * (tan(slopeAngle) - tan(thetaR));
+
   vec2 grad;
   float eps = 0.5;
   grad.x = sdRoundedRect(p + vec2(eps, 0.0), halfSize, safeRadius) - sdRoundedRect(p - vec2(eps, 0.0), halfSize, safeRadius);
   grad.y = sdRoundedRect(p + vec2(0.0, eps), halfSize, safeRadius) - sdRoundedRect(p - vec2(0.0, eps), halfSize, safeRadius);
   
   float gradLen = length(grad);
-  if (gradLen > 0.0001) {
-    grad /= gradLen;
-  } else {
-    grad = vec2(0.0, 0.0);
-  }
+  grad = gradLen > 0.0001 ? grad / gradLen : vec2(0.0);
+
+  vec2 offsetPx = -grad * displacement;
+  vec2 samplePos = screenPx + offsetPx;
+
+  vec3 color = sampleBackground(samplePos);
 
   vec2 lightDir = normalize(vec2(0.5, -0.7));
   float rimDot = abs(dot(grad, lightDir));
-  float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.45, distFromEdge);
+  float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.4, distFromEdge);
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
-
-  if (uIsPill > 0.5) {
-    float edgeLinePill = 1.0 - smoothstep(0.0, 1.85, distFromEdge);
-    float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
-
-    vec3 pillColor = vec3(0.0);
-    pillColor = mix(pillColor, vec3(0.0), edgeLinePill * 0.42);
-    pillColor += vec3(1.0) * (specHighlight * uSpecular + innerRim * 0.08);
-
-    float pillAlpha = max(edgeLinePill * 0.55, specHighlight * uSpecular);
-    pillAlpha = max(pillAlpha, innerRim * 0.25);
-
-    gl_FragColor = vec4(pillColor, pillAlpha);
-    return;
-  }
+  color += vec3(specHighlight * uSpecular * uRimGlow);
 
   float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
+  if (uIsPill > 0.5) {
+    color = mix(color, vec3(0.0), edgeLine * 0.30);
+  } else {
+    color += vec3(edgeLine * uSpecular * 0.34);
+  }
+
   float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
+  color += vec3(innerRim * 0.055 * uSpecular);
 
-  vec3 barColor = vec3(0.9608, 0.9608, 0.9686);
-  barColor += vec3(specHighlight * uSpecular * uRimGlow);
-  barColor += vec3(edgeLine * uSpecular * 0.34);
-  barColor += vec3(innerRim * 0.055 * uSpecular);
-  barColor = mix(barColor, vec3(1.0), uTint);
-
+  color = mix(color, vec3(1.0), uTint);
   float alpha = smoothstep(0.0, 1.5, distFromEdge);
 
-  gl_FragColor = vec4(barColor, alpha);
+  gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -130,7 +155,7 @@ export const Glass: React.FC<GlassProps> = ({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const margin = noShadow ? 30 : 20;
+    const margin = noShadow ? 0 : 20;
 
     let baseW = container.clientWidth || 1;
     let baseH = container.clientHeight || 1;
@@ -147,6 +172,11 @@ export const Glass: React.FC<GlassProps> = ({
 
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    const textureLoader = new THREE.TextureLoader();
+    const houseTexture = textureLoader.load('/mocs/house.png');
+    houseTexture.minFilter = THREE.LinearFilter;
+    houseTexture.magFilter = THREE.LinearFilter;
 
     const initialCenter = centerRef?.current
       ? new THREE.Vector2(centerRef.current.x + margin, centerRef.current.y + margin)
@@ -170,6 +200,7 @@ export const Glass: React.FC<GlassProps> = ({
       uTint: { value: 0.07 },
       uShadow: { value: noShadow ? 0.0 : 0.08 },
       uIsPill: { value: isPill ? 1.0 : 0.0 },
+      uHouseTex: { value: houseTexture },
     };
 
     const material = new THREE.ShaderMaterial({
@@ -223,10 +254,11 @@ export const Glass: React.FC<GlassProps> = ({
       cancelAnimationFrame(animationFrameId);
       renderer.dispose();
       material.dispose();
+      houseTexture.dispose();
     };
   }, [radius, noShadow, isPill, centerRef, sizeRef]);
 
-  const margin = noShadow ? 30 : 20;
+  const margin = noShadow ? 0 : 20;
 
   return (
     <div
