@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
 import { Glass } from './glass';
 
 const PHYSICS = {
@@ -117,7 +116,6 @@ const styles = {
 
 export const Tabs: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [tabTexture, setTabTexture] = useState<THREE.Texture | null>(null);
   const [pillCenter, setPillCenter] = useState({ x: 38, y: 33 });
   const [pillSize, setPillSize] = useState({ w: 70, h: 58 });
 
@@ -134,39 +132,6 @@ export const Tabs: React.FC = () => {
     intensity: 1,
     currentIndex: 0
   });
-
-  useEffect(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 304;
-    canvas.height = 132;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.scale(2, 2);
-
-    ctx.fillStyle = '#F5F5F7';
-    ctx.fillRect(0, 0, 152, 66);
-
-    ctx.beginPath();
-    ctx.arc(114, 33, 12, 0, Math.PI * 2);
-    ctx.fillStyle = '#E5E5EA';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    const img = new Image();
-    img.src = '/mocs/house.png';
-    img.onload = () => {
-      ctx.save();
-      ctx.drawImage(img, 38 - 12, 33 - 12, 24, 24);
-      ctx.restore();
-
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      setTabTexture(tex);
-    };
-  }, []);
 
   const spring = (current: number, target: number, velocity: number, config: { k: number; d: number; m: number }) => {
     const force = -config.k * (current - target);
@@ -272,16 +237,13 @@ export const Tabs: React.FC = () => {
         <div ref={sliderRef} style={styles.slider} />
 
         <div ref={lensOverlayRef} style={styles.lensOverlay}>
-          {tabTexture && (
-            <Glass
-              radius={27}
-              noShadow
-              isPill
-              bgTexture={tabTexture}
-              center={pillCenter}
-              size={pillSize}
-            />
-          )}
+          <Glass
+            radius={27}
+            noShadow
+            isPill
+            center={pillCenter}
+            size={pillSize}
+          />
         </div>
 
         <button
