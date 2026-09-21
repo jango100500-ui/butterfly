@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Glass } from './glass';
 
 const PHYSICS = {
   pos: { k: 380, d: 38, m: 1 },
@@ -20,17 +21,12 @@ const styles = {
   },
   tabBar: {
     position: 'relative' as const,
-    background: 'rgba(242, 242, 247, 0.82)',
-    backdropFilter: 'blur(25px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
-    borderRadius: '34px',
+    borderRadius: '33px',
     display: 'flex',
     padding: '4px',
-    border: '0.5px solid rgba(0, 0, 0, 0.08)',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
     pointerEvents: 'auto' as const,
-    width: '136px',
-    height: '56px',
+    width: '152px',
+    height: '66px',
   },
   tabItem: {
     position: 'relative' as const,
@@ -51,35 +47,28 @@ const styles = {
     top: '4px',
     left: '4px',
     height: 'calc(100% - 8px)',
-    background: 'rgba(0, 0, 0, 0.06)',
-    borderRadius: '28px',
+    borderRadius: '27px',
     zIndex: 1,
     pointerEvents: 'none' as const,
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
-    border: '1px solid transparent',
-    willChange: 'transform, left, width, background-color, border-color',
-    transition: 'background-color 0.16s ease-out, border-color 0.16s ease-out',
+    willChange: 'transform, left, width',
   },
   icon: {
-    width: '24px',
-    height: '24px',
+    width: '26px',
+    height: '26px',
     objectFit: 'contain' as const,
   },
   avatarSkeleton: {
-    width: '24px',
-    height: '24px',
+    width: '26px',
+    height: '26px',
     borderRadius: '50%',
   },
   searchButton: {
-    width: '56px',
-    height: '56px',
-    borderRadius: '50%',
-    background: 'rgba(242, 242, 247, 0.82)',
-    backdropFilter: 'blur(25px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
-    border: '0.5px solid rgba(0, 0, 0, 0.08)',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+    position: 'relative' as const,
+    width: '66px',
+    height: '66px',
+    borderRadius: '33px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -87,6 +76,8 @@ const styles = {
     pointerEvents: 'auto' as const,
     outline: 'none',
     padding: 0,
+    background: 'none',
+    border: 'none',
   }
 };
 
@@ -154,13 +145,9 @@ export const Tabs: React.FC = () => {
 
         if (s.isMoving) {
           if (dist > 8) {
-            slider.style.backgroundColor = 'transparent';
-            slider.style.borderColor = 'rgba(0, 0, 0, 0.18)';
             s.tsy = 1 + (0.27 * s.intensity);
             s.tsx = 1 - (0.10 * s.intensity);
           } else if (dist <= 8 && dist > 0.5) {
-            slider.style.backgroundColor = 'rgba(0, 0, 0, 0.06)';
-            slider.style.borderColor = 'transparent';
             s.tsy = 1 - (0.05 * s.intensity);
             s.tsx = 1 + (0.08 * s.intensity);
           } else {
@@ -168,8 +155,6 @@ export const Tabs: React.FC = () => {
             s.tsy = 1;
             if (vel < 0.2 && Math.abs(s.vsx) < 0.2) {
               s.isMoving = false;
-              slider.style.backgroundColor = 'rgba(0, 0, 0, 0.06)';
-              slider.style.borderColor = 'transparent';
             }
           }
         }
@@ -194,7 +179,10 @@ export const Tabs: React.FC = () => {
   return (
     <nav style={styles.navWrapper}>
       <div style={styles.tabBar}>
-        <div ref={sliderRef} style={styles.slider} />
+        <Glass radius={33} />
+        <div ref={sliderRef} style={styles.slider}>
+          <Glass radius={27} noShadow />
+        </div>
         
         <button
           ref={(el) => (tabRefs.current[0] = el)}
@@ -229,7 +217,12 @@ export const Tabs: React.FC = () => {
       </div>
 
       <button style={styles.searchButton}>
-        <img src="/mocs/search.png" alt="Search" style={styles.icon} />
+        <Glass radius={33} />
+        <img 
+          src="/mocs/search.png" 
+          alt="Search" 
+          style={{ ...styles.icon, position: 'relative', zIndex: 2 }} 
+        />
       </button>
     </nav>
   );
