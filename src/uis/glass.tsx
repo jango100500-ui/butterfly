@@ -25,6 +25,7 @@ uniform float uSpecular;
 uniform float uRimGlow;
 uniform float uTint;
 uniform float uShadow;
+uniform float uDarkContour;
 uniform sampler2D uBgTex;
 uniform float uBgAspect;
 
@@ -113,21 +114,34 @@ void main() {
   vec2 screenUV = screenPx / uResolution;
 
   vec3 color = sampleBgBlurred(screenUV + offset, uBlur);
-
-  vec2 lightDir = normalize(vec2(0.5, -0.7));
-  float rimDot = abs(dot(grad, lightDir));
-  float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.4, distFromEdge);
-  float specHighlight = pow(rimDot * rimFalloff, 1.5);
-  color += vec3(specHighlight * uSpecular * uRimGlow);
-
   float edgeLine = 1.0 - smoothstep(0.0, 1.2, distFromEdge);
-  color += vec3(edgeLine * uSpecular * 0.45);
 
-  float innerRim = smoothstep(0.3, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.0, distFromEdge));
-  color += vec3(innerRim * 0.08 * uSpecular);
+  if (uDarkContour > 0.5) {
+    // Темная капля: затемняем края
+    color = mix(color, vec3(0.0), edgeLine * 0.15);
+  } else {
+    // Светлое стекло (таббар/кнопка)
+    vec2 lightDir = normalize(vec2(0.5, -0.7));
+    float rimDot = abs(dot(grad, lightDir));
+    float rimFalloff = 1.0 - smoothstep(0.0, bezel * 0.4, distFromEdge);
+    float specHighlight = pow(rimDot * rimFalloff, 1.5);
+    
+    color += vec3(specHighlight * uSpecular * uRimGlow);
+    color += vec3(edgeLine * uSpecular * 0.45);
+    
+    float innerRim = smoothstep(0.3, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.0, distFromEdge));
+    color += vec3(innerRim * 0.08 * uSpecular);
+  }
 
   color = mix(color, vec3(1.0), uTint);
   float alpha = smoothstep(0.0, 1.0, distFromEdge);
+
+  // ГЕНИАЛЬНЫЙ ТРЮК: Делаем центр капли прозрачным, чтобы HTML-иконки просвечивали!
+  // Оставляем только края, которые преломляют всё под собой.
+  if (uDarkContour > 0.5) {
+    float centerFade = 1.0 - smoothstep(bezel * 0.2, bezel * 1.0, distFromEdge);
+    alpha *= centerFade;
+  }
 
   gl_FragColor = vec4(color, alpha);
 }
@@ -136,9 +150,10 @@ void main() {
 interface GlassProps {
   radius?: number;
   noShadow?: boolean;
+  variant?: 'light' | 'dark';
 }
 
-export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) => {
+export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false, variant = 'light' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -190,6 +205,7 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
       uRimGlow: { value: 0.03 },
       uTint: { value: 0.07 },
       uShadow: { value: noShadow ? 0.0 : 0.06 },
+      uDarkContour: { value: variant === 'dark' ? 1.0 : 0.0 },
       uBgTex: { value: defaultTexture },
       uBgAspect: { value: 1.0 },
     };
@@ -237,7 +253,7 @@ export const Glass: React.FC<GlassProps> = ({ radius = 33, noShadow = false }) =
       material.dispose();
       defaultTexture.dispose();
     };
-  }, [radius, noShadow]);
+  }, [radius, noShadow, variant]);
 
   const margin = noShadow ? 0 : 20;
 
