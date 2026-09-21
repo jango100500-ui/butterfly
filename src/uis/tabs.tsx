@@ -27,15 +27,19 @@ const styles = {
     pointerEvents: 'auto' as const,
     width: '152px',
     height: '66px',
-    background: 'rgba(255, 255, 255, 0.72)',
-    backdropFilter: 'blur(25px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
-    border: '1.5px solid rgba(255, 255, 255, 0.95)',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
+    background: 'transparent',
+  },
+  tabBarBg: {
+    position: 'absolute' as const,
+    inset: 0,
+    borderRadius: 'inherit',
+    background: 'rgba(255, 255, 255, 0.4)',
+    border: '1px solid rgba(255, 255, 255, 0.8)',
+    pointerEvents: 'none' as const,
   },
   tabItem: {
     position: 'relative' as const,
-    zIndex: 1,
+    zIndex: 2, // ИКОНКИ СВЕРХУ
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -53,12 +57,12 @@ const styles = {
     left: '4px',
     height: 'calc(100% - 8px)',
     borderRadius: '27px',
-    zIndex: 3,
+    zIndex: 1, // КАПЛЯ ЛЕТАЕТ ПОД ИКОНКАМИ
     pointerEvents: 'none' as const,
     transformOrigin: 'center center',
     boxSizing: 'border-box' as const,
     willChange: 'transform, left, width, background-color',
-    transition: 'background-color 0.14s ease-out',
+    transition: 'background-color 0.12s ease-out',
     backgroundColor: 'rgba(0, 0, 0, 0.065)',
   },
   lensContainer: {
@@ -67,7 +71,7 @@ const styles = {
     borderRadius: 'inherit',
     pointerEvents: 'none' as const,
     opacity: 0,
-    transition: 'opacity 0.14s ease-out',
+    transition: 'opacity 0.12s ease-out',
   },
   icon: {
     width: '24px',
@@ -96,11 +100,16 @@ const styles = {
     pointerEvents: 'auto' as const,
     outline: 'none',
     padding: 0,
-    background: 'rgba(255, 255, 255, 0.72)',
-    backdropFilter: 'blur(25px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(25px) saturate(180%)',
-    border: '1.5px solid rgba(255, 255, 255, 0.95)',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
+    background: 'transparent',
+    border: 'none',
+  },
+  searchBg: {
+    position: 'absolute' as const,
+    inset: 0,
+    borderRadius: 'inherit',
+    background: 'rgba(255, 255, 255, 0.4)',
+    border: '1px solid rgba(255, 255, 255, 0.8)',
+    pointerEvents: 'none' as const,
   }
 };
 
@@ -230,11 +239,12 @@ export const Tabs: React.FC = () => {
   return (
     <nav style={styles.navWrapper}>
       <div style={styles.tabBar}>
-        <Glass radius={33} noShadow variant="light" />
+        <Glass radius={33} />
+        <div style={styles.tabBarBg} />
 
         <div ref={sliderRef} style={styles.slider}>
           <div ref={lensRef} style={styles.lensContainer}>
-            <Glass radius={27} noShadow variant="dark" />
+            <Glass radius={27} noShadow isPill />
           </div>
         </div>
 
@@ -269,7 +279,8 @@ export const Tabs: React.FC = () => {
       </div>
 
       <button style={styles.searchButton}>
-        <Glass radius={33} noShadow variant="light" />
+        <Glass radius={33} />
+        <div style={styles.searchBg} />
         <img
           src="/mocs/search.png"
           alt="Search"
