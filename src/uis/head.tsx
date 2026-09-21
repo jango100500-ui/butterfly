@@ -36,6 +36,7 @@ const styles = {
     objectFit: 'contain' as const,
     position: 'relative' as const,
     zIndex: 2,
+    filter: 'brightness(0)',
   }
 };
 
