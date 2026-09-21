@@ -73,6 +73,8 @@ const styles = {
     zIndex: 3,
     pointerEvents: 'none' as const,
     opacity: 0,
+    backdropFilter: 'blur(1.5px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(1.5px) saturate(180%)',
   },
   icon: {
     width: '24px',
@@ -131,7 +133,6 @@ export const Tabs: React.FC = () => {
   const wasDraggingRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
   const lastTouchXRef = useRef(0);
-  const touchVelocityRef = useRef(0);
 
   const state = useRef({
     x: 0, tx: 0, vx: 0,
@@ -191,7 +192,6 @@ export const Tabs: React.FC = () => {
 
     const touchX = e.clientX - rect.left;
     lastTouchXRef.current = touchX;
-    touchVelocityRef.current = 0;
     wasDraggingRef.current = false;
 
     const activeEl = tabRefs.current[state.current.currentIndex];
@@ -211,8 +211,8 @@ export const Tabs: React.FC = () => {
         if (sliderRef.current) sliderRef.current.style.opacity = '0';
         if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '1';
 
-        state.current.tsy = 1.45;
-        state.current.tsx = 0.85;
+        state.current.tsy = 1.38;
+        state.current.tsx = 1.0;
       }, 160);
     }
   };
@@ -237,21 +237,15 @@ export const Tabs: React.FC = () => {
 
     const touchX = e.clientX - rect.left;
     const dx = touchX - lastTouchXRef.current;
-    touchVelocityRef.current = Math.abs(dx);
     lastTouchXRef.current = touchX;
 
     const targetX = Math.max(4, Math.min(148 - state.current.w, touchX - state.current.w / 2));
     state.current.tx = targetX;
 
-    const speed = Math.min(15, touchVelocityRef.current);
-    if (speed > 1.2) {
-      const stretchFactor = speed / 15;
-      state.current.tsy = 1.45 - stretchFactor * 0.48;
-      state.current.tsx = 0.85 + stretchFactor * 0.35;
-    } else {
-      state.current.tsy = 1.45;
-      state.current.tsx = 0.85;
-    }
+    const speed = Math.min(15, Math.abs(dx));
+    const stretch = (speed / 15) * 0.16;
+    state.current.tsy = 1.38 - stretch;
+    state.current.tsx = 1.0;
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -296,17 +290,17 @@ export const Tabs: React.FC = () => {
             slider.style.opacity = '0';
             if (lens) lens.style.opacity = '1';
 
-            s.tsy = 1 + (0.45 * s.intensity);
-            s.tsx = 1 - (0.20 * s.intensity);
+            s.tsy = 1 + (0.42 * s.intensity);
+            s.tsx = 1.0;
           } else if (dist <= 12 && dist > 0.5) {
             slider.style.opacity = '1';
             if (lens) lens.style.opacity = '0';
 
-            s.tsy = 1 - (0.06 * s.intensity);
-            s.tsx = 1 + (0.08 * s.intensity);
+            s.tsy = 1 - (0.05 * s.intensity);
+            s.tsx = 1.0;
           } else {
-            s.tsx = 1;
-            s.tsy = 1;
+            s.tsx = 1.0;
+            s.tsy = 1.0;
             if (vel < 0.3 && Math.abs(s.vsx) < 0.3) {
               s.isMoving = false;
               slider.style.opacity = '1';
