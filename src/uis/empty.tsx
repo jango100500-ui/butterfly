@@ -10,6 +10,8 @@ const styles = {
     height: '100%',
     padding: '0 32px',
     textAlign: 'center' as const,
+    cursor: 'pointer', // Показывает, что можно кликать
+    WebkitTapHighlightColor: 'transparent',
   },
   contentWrapper: {
     display: 'flex',
@@ -61,7 +63,7 @@ export const Empty: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   return (
-    <div style={styles.container}>
+    <label htmlFor="file-upload" style={styles.container}>
       <div style={styles.contentWrapper}>
         <div style={styles.imageWrapper}>
           {!isLoaded && <div className="shimmer" style={styles.skeleton} />}
@@ -79,6 +81,6 @@ export const Empty: React.FC = () => {
           Бросай сюда всё, что хочешь — фото, видео, тексты, ссылки, файлы
         </p>
       </div>
-    </div>
+    </label>
   );
 };
