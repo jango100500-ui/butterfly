@@ -52,6 +52,22 @@
         -webkit-user-drag: none;
         pointer-events: none;
       }
+
+      @keyframes shimmer {
+        0% {
+          background-color: #F2F2F7;
+        }
+        50% {
+          background-color: #E5E5EA;
+        }
+        100% {
+          background-color: #F2F2F7;
+        }
+      }
+
+      .shimmer {
+        animation: shimmer 1.8s ease-in-out infinite;
+      }
     </style>
   </head>
   <body>
