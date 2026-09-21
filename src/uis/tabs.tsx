@@ -27,6 +27,7 @@ const styles = {
     pointerEvents: 'auto' as const,
     width: '152px',
     height: '66px',
+    background: 'rgba(255, 255, 255, 0.25)',
   },
   tabItem: {
     position: 'relative' as const,
@@ -76,7 +77,7 @@ const styles = {
     pointerEvents: 'auto' as const,
     outline: 'none',
     padding: 0,
-    background: 'none',
+    background: 'rgba(255, 255, 255, 0.25)',
     border: 'none',
   }
 };
@@ -183,20 +184,20 @@ export const Tabs: React.FC = () => {
         <div ref={sliderRef} style={styles.slider}>
           <Glass radius={27} noShadow />
         </div>
-        
+
         <button
           ref={(el) => (tabRefs.current[0] = el)}
           style={styles.tabItem}
           onClick={() => setTarget(0)}
         >
-          <img 
-            src="/mocs/house.png" 
-            alt="Home" 
-            style={{ 
-              ...styles.icon, 
-              opacity: activeIndex === 0 ? 1 : 0.45, 
-              transition: 'opacity 0.2s ease' 
-            }} 
+          <img
+            src="/mocs/house.png"
+            alt="Home"
+            style={{
+              ...styles.icon,
+              opacity: activeIndex === 0 ? 1 : 0.45,
+              transition: 'opacity 0.2s ease',
+            }}
           />
         </button>
 
@@ -205,23 +206,23 @@ export const Tabs: React.FC = () => {
           style={styles.tabItem}
           onClick={() => setTarget(1)}
         >
-          <div 
-            className="shimmer" 
-            style={{ 
-              ...styles.avatarSkeleton, 
-              opacity: activeIndex === 1 ? 1 : 0.45, 
-              transition: 'opacity 0.2s ease' 
-            }} 
+          <div
+            className="shimmer"
+            style={{
+              ...styles.avatarSkeleton,
+              opacity: activeIndex === 1 ? 1 : 0.45,
+              transition: 'opacity 0.2s ease',
+            }}
           />
         </button>
       </div>
 
       <button style={styles.searchButton}>
         <Glass radius={33} />
-        <img 
-          src="/mocs/search.png" 
-          alt="Search" 
-          style={{ ...styles.icon, position: 'relative', zIndex: 2 }} 
+        <img
+          src="/mocs/search.png"
+          alt="Search"
+          style={{ ...styles.icon, position: 'relative', zIndex: 2 }}
         />
       </button>
     </nav>
