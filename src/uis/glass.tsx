@@ -118,9 +118,9 @@ void main() {
     color *= mix(1.0, 0.7, innerShadow * 0.3);
   }
 
-  float edgeLine = 1.0 - smoothstep(0.0, uIsPill > 0.5 ? 0.4 : 0.8, distFromEdge);
+  float edgeLine = 1.0 - smoothstep(0.0, 1.15, distFromEdge);
   if (uIsPill > 0.5) {
-    color = mix(color, vec3(0.0), edgeLine * 0.22);
+    color = mix(color, vec3(0.0), edgeLine * 0.25);
   } else {
     color += vec3(edgeLine * uSpecular * 0.34);
   }
@@ -139,24 +139,19 @@ interface GlassProps {
   radius?: number;
   noShadow?: boolean;
   isPill?: boolean;
-  center?: { x: number; y: number };
-  size?: { w: number; h: number };
+  centerRef?: React.MutableRefObject<{ x: number; y: number }>;
+  sizeRef?: React.MutableRefObject<{ w: number; h: number }>;
 }
 
 export const Glass: React.FC<GlassProps> = ({
   radius = 33,
   noShadow = false,
   isPill = false,
-  center,
-  size,
+  centerRef,
+  sizeRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const centerRef = useRef(center);
-  const sizeRef = useRef(size);
-
-  centerRef.current = center;
-  sizeRef.current = size;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -186,11 +181,11 @@ export const Glass: React.FC<GlassProps> = ({
     houseTexture.minFilter = THREE.LinearFilter;
     houseTexture.magFilter = THREE.LinearFilter;
 
-    const initialCenter = centerRef.current
+    const initialCenter = centerRef?.current
       ? new THREE.Vector2(centerRef.current.x + margin, centerRef.current.y + margin)
       : new THREE.Vector2(totalW / 2, totalH / 2);
 
-    const initialSize = sizeRef.current
+    const initialSize = sizeRef?.current
       ? new THREE.Vector2(sizeRef.current.w, sizeRef.current.h)
       : new THREE.Vector2(baseW, baseH);
 
@@ -199,10 +194,10 @@ export const Glass: React.FC<GlassProps> = ({
       uGlassCenter: { value: initialCenter },
       uGlassSize: { value: initialSize },
       uRadius: { value: radius },
-      uThickness: { value: 62.0 },
-      uBezel: { value: 48.0 },
-      uIOR: { value: 2.70 },
-      uBlur: { value: 2.0 },
+      uThickness: { value: isPill ? 16.0 : 24.0 },
+      uBezel: { value: isPill ? 14.0 : 20.0 },
+      uIOR: { value: isPill ? 2.15 : 2.70 },
+      uBlur: { value: isPill ? 1.0 : 2.0 },
       uSpecular: { value: 0.52 },
       uRimGlow: { value: 0.03 },
       uTint: { value: 0.07 },
@@ -236,7 +231,7 @@ export const Glass: React.FC<GlassProps> = ({
           uniforms.uResolution.value.set(totalW, totalH);
         }
 
-        if (centerRef.current) {
+        if (centerRef?.current) {
           uniforms.uGlassCenter.value.set(
             centerRef.current.x + margin,
             centerRef.current.y + margin
@@ -245,7 +240,7 @@ export const Glass: React.FC<GlassProps> = ({
           uniforms.uGlassCenter.value.set(totalW / 2, totalH / 2);
         }
 
-        if (sizeRef.current) {
+        if (sizeRef?.current) {
           uniforms.uGlassSize.value.set(sizeRef.current.w, sizeRef.current.h);
         } else {
           uniforms.uGlassSize.value.set(baseW, baseH);
@@ -264,7 +259,7 @@ export const Glass: React.FC<GlassProps> = ({
       material.dispose();
       houseTexture.dispose();
     };
-  }, [radius, noShadow, isPill]);
+  }, [radius, noShadow, isPill, centerRef, sizeRef]);
 
   const margin = noShadow ? 0 : 20;
 
