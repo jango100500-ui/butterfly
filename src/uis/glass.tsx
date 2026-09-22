@@ -39,44 +39,27 @@ float surfaceHeight(float t) {
 }
 
 vec3 sampleBackground(vec2 px) {
-  vec3 screenBg = vec3(0.9608, 0.9608, 0.9686);
+  vec3 bg = vec3(0.9608, 0.9608, 0.9686);
 
   if (uIsPill > 0.5) {
-    vec2 barCenter = vec2(76.0, 33.0);
-    vec2 barHalfSize = vec2(76.0, 33.0);
-    float barSd = sdRoundedRect(px - barCenter, barHalfSize, 32.0);
-
-    vec3 color;
-    if (barSd <= 0.0) {
-      color = vec3(0.99, 0.99, 1.0);
-
-      if (barSd >= -1.6) {
-        color = vec3(1.0);
-      }
-
-      vec2 houseDelta = px - vec2(38.0, 33.0);
-      if (abs(houseDelta.x) <= 12.0 && abs(houseDelta.y) <= 12.0) {
-        vec2 iconUv = clamp((houseDelta + 12.0) / 24.0, 0.0, 1.0);
-        iconUv.y = 1.0 - iconUv.y;
-        vec4 iconColor = texture2D(uHouseTex, iconUv);
-        color = mix(color, vec3(0.0), iconColor.a);
-      }
-
-      float profileDist = length(px - vec2(114.0, 33.0));
-      if (profileDist <= 12.0) {
-        color = vec3(0.898, 0.898, 0.918);
-        if (profileDist >= 11.0) {
-          color = mix(color, vec3(0.0), 0.08);
-        }
-      }
-    } else {
-      color = screenBg;
+    vec2 houseDelta = px - vec2(38.0, 33.0);
+    if (abs(houseDelta.x) <= 12.0 && abs(houseDelta.y) <= 12.0) {
+      vec2 iconUv = clamp((houseDelta + 12.0) / 24.0, 0.0, 1.0);
+      iconUv.y = 1.0 - iconUv.y;
+      vec4 iconColor = texture2D(uHouseTex, iconUv);
+      bg = mix(bg, vec3(0.0), iconColor.a);
     }
 
-    return color;
+    float profileDist = length(px - vec2(114.0, 33.0));
+    if (profileDist <= 12.0) {
+      bg = vec3(0.898, 0.898, 0.918);
+      if (profileDist >= 11.0) {
+        bg = mix(bg, vec3(0.0), 0.08);
+      }
+    }
   }
 
-  return screenBg;
+  return bg;
 }
 
 void main() {
@@ -121,10 +104,15 @@ void main() {
   float gradLen = length(grad);
   grad = gradLen > 0.0001 ? grad / gradLen : vec2(0.0);
 
-  vec2 offsetPx = -grad * displacement;
-  vec2 samplePos = screenPx + offsetPx;
+  float dispSpread = 0.045;
+  vec2 offsetR = -grad * (displacement * (1.0 + dispSpread));
+  vec2 offsetG = -grad * displacement;
+  vec2 offsetB = -grad * (displacement * (1.0 - dispSpread));
 
-  vec3 color = sampleBackground(samplePos);
+  float colR = sampleBackground(screenPx + offsetR).r;
+  float colG = sampleBackground(screenPx + offsetG).g;
+  float colB = sampleBackground(screenPx + offsetB).b;
+  vec3 color = vec3(colR, colG, colB);
 
   vec2 lightDir = normalize(vec2(0.5, -0.7));
   float rimDot = abs(dot(grad, lightDir));
@@ -132,16 +120,22 @@ void main() {
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
   color += vec3(specHighlight * uSpecular * uRimGlow);
 
+  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
+  color += vec3(innerRim * 0.055 * uSpecular);
+
+  float angle = atan(grad.y, grad.x) * 1.4;
+  vec3 rainbow = 0.5 + 0.5 * cos(angle + vec3(0.0, 2.05, 4.1));
+  float rainbowStrength = (specHighlight * 0.55 + innerRim * 0.35) * uSpecular;
+  color += rainbow * rainbowStrength;
+
   float edgeLine = 1.0 - smoothstep(0.0, 1.35, distFromEdge);
   if (uIsPill > 0.5) {
     vec3 grayContour = vec3(0.52, 0.52, 0.55);
     color = mix(color, grayContour, edgeLine * 0.36);
   } else {
     color += vec3(edgeLine * uSpecular * 0.34);
+    color += rainbow * (edgeLine * 0.28 * uSpecular);
   }
-
-  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
-  color += vec3(innerRim * 0.055 * uSpecular);
 
   color = mix(color, vec3(1.0), uTint);
   float alpha = smoothstep(0.0, 1.5, distFromEdge);
@@ -173,7 +167,7 @@ export const Glass: React.FC<GlassProps> = ({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const margin = noShadow ? 30 : 20;
+    const margin = noShadow ? 0 : 20;
 
     let baseW = container.clientWidth || 1;
     let baseH = container.clientHeight || 1;
@@ -276,7 +270,7 @@ export const Glass: React.FC<GlassProps> = ({
     };
   }, [radius, noShadow, isPill, centerRef, sizeRef]);
 
-  const margin = noShadow ? 30 : 20;
+  const margin = noShadow ? 0 : 20;
 
   return (
     <div
