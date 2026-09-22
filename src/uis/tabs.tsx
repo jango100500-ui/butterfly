@@ -29,14 +29,16 @@ const styles = {
     height: '66px',
     background: 'transparent',
     touchAction: 'none' as const,
+    overflow: 'visible' as const,
   },
   tabBarBg: {
     position: 'absolute' as const,
     inset: 0,
     borderRadius: 'inherit',
-    background: 'rgba(255, 255, 255, 0.4)',
+    background: 'rgba(255, 255, 255, 0.35)',
     border: '1px solid rgba(255, 255, 255, 0.8)',
     pointerEvents: 'none' as const,
+    transition: 'transform 0.16s ease-out',
   },
   tabItem: {
     position: 'relative' as const,
@@ -73,6 +75,7 @@ const styles = {
     zIndex: 3,
     pointerEvents: 'none' as const,
     opacity: 0,
+    overflow: 'visible' as const,
   },
   icon: {
     width: '24px',
@@ -110,7 +113,7 @@ const styles = {
     position: 'absolute' as const,
     inset: 0,
     borderRadius: 'inherit',
-    background: 'rgba(255, 255, 255, 0.4)',
+    background: 'rgba(255, 255, 255, 0.35)',
     border: '1px solid rgba(255, 255, 255, 0.8)',
     pointerEvents: 'none' as const,
   }
@@ -121,7 +124,8 @@ export const Tabs: React.FC = () => {
 
   const tabBarRef = useRef<HTMLDivElement>(null);
   const pillCenterRef = useRef({ x: 38, y: 33 });
-  const pillSizeRef = useRef({ w: 74, h: 58 });
+  const pillSizeRef = useRef({ w: 70, h: 58 });
+  const bulgeActiveRef = useRef(0.0);
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const lensOverlayRef = useRef<HTMLDivElement>(null);
@@ -176,6 +180,7 @@ export const Tabs: React.FC = () => {
       pillCenterRef.current.y = 33;
       pillSizeRef.current.w = state.current.w;
       pillSizeRef.current.h = 58;
+      bulgeActiveRef.current = 0.0;
     } else {
       state.current.intensity = diff > 1 ? 1 : 0.65;
       state.current.isMoving = true;
@@ -209,8 +214,8 @@ export const Tabs: React.FC = () => {
         if (sliderRef.current) sliderRef.current.style.opacity = '0';
         if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '1';
 
-        state.current.tsy = 1.38;
-        state.current.tsx = 1.08;
+        state.current.tsy = 1.52;
+        state.current.tsx = 1.0;
       }, 160);
     }
   };
@@ -241,9 +246,9 @@ export const Tabs: React.FC = () => {
     state.current.tx = targetX;
 
     const speed = Math.min(15, Math.abs(dx));
-    const stretch = (speed / 15) * 0.14;
-    state.current.tsy = 1.38 - stretch;
-    state.current.tsx = 1.08;
+    const stretch = (speed / 15) * 0.16;
+    state.current.tsy = 1.52 - stretch;
+    state.current.tsx = 1.0;
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -288,14 +293,16 @@ export const Tabs: React.FC = () => {
             slider.style.opacity = '0';
             if (lens) lens.style.opacity = '1';
 
-            s.tsy = 1 + (0.38 * s.intensity);
-            s.tsx = 1.06;
+            s.tsy = 1 + (0.52 * s.intensity);
+            s.tsx = 1.0;
+            bulgeActiveRef.current = Math.min(1.0, bulgeActiveRef.current + 0.12);
           } else if (dist <= 12 && dist > 0.5) {
             slider.style.opacity = '1';
             if (lens) lens.style.opacity = '0';
 
             s.tsy = 1 - (0.05 * s.intensity);
             s.tsx = 1.0;
+            bulgeActiveRef.current = Math.max(0.0, bulgeActiveRef.current - 0.12);
           } else {
             s.tsx = 1.0;
             s.tsy = 1.0;
@@ -303,8 +310,13 @@ export const Tabs: React.FC = () => {
               s.isMoving = false;
               slider.style.opacity = '1';
               if (lens) lens.style.opacity = '0';
+              bulgeActiveRef.current = 0.0;
             }
           }
+        } else if (isDraggingRef.current) {
+          bulgeActiveRef.current = Math.min(1.0, bulgeActiveRef.current + 0.12);
+        } else {
+          bulgeActiveRef.current = Math.max(0.0, bulgeActiveRef.current - 0.12);
         }
 
         [s.x, s.vx] = spring(s.x, s.tx, s.vx, PHYSICS.pos);
@@ -339,7 +351,11 @@ export const Tabs: React.FC = () => {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <Glass radius={33} />
+        <Glass
+          radius={33}
+          bulgePosRef={pillCenterRef}
+          bulgeActiveRef={bulgeActiveRef}
+        />
         <div style={styles.tabBarBg} />
 
         <div ref={sliderRef} style={styles.slider} />
