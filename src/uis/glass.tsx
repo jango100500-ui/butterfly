@@ -73,11 +73,9 @@ void main() {
   float sd = sdRoundedRect(p, halfSize, safeRadius);
 
   if (sd > 0.0) {
-    if (uIsPill > 0.5) {
-      discard;
-    }
-    float shadowFalloff = exp(-sd * sd / 350.0);
-    gl_FragColor = vec4(0.0, 0.0, 0.0, uShadow * shadowFalloff * 0.4);
+    float shadowFalloff = exp(-sd * sd / 260.0);
+    float shadowStrength = uIsPill > 0.5 ? 0.14 : uShadow * 0.4;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, shadowStrength * shadowFalloff);
     return;
   }
 
@@ -120,19 +118,18 @@ void main() {
   float specHighlight = pow(rimDot * rimFalloff, 1.5);
   color += vec3(specHighlight * uSpecular * uRimGlow);
 
-  float innerRim = smoothstep(0.35, 1.25, distFromEdge) * (1.0 - smoothstep(1.25, 2.2, distFromEdge));
-  color += vec3(innerRim * 0.065 * uSpecular);
+  float innerRim = smoothstep(0.35, 1.2, distFromEdge) * (1.0 - smoothstep(1.2, 2.1, distFromEdge));
+  color += vec3(innerRim * 0.055 * uSpecular);
 
   float angle = atan(grad.y, grad.x) * 1.4;
   vec3 rainbow = 0.5 + 0.5 * cos(angle + vec3(0.0, 2.05, 4.1));
   float rainbowStrength = (specHighlight * 0.65 + innerRim * 0.45) * uSpecular;
   color += rainbow * rainbowStrength;
 
-  float edgeLine = 1.0 - smoothstep(0.0, 1.4, distFromEdge);
+  float edgeLine = 1.0 - smoothstep(0.0, 1.45, distFromEdge);
   if (uIsPill > 0.5) {
-    vec3 contourDark = vec3(0.38, 0.38, 0.42);
-    color = mix(color, contourDark, edgeLine * 0.45);
-    color += rainbow * (edgeLine * 0.32 * uSpecular);
+    vec3 pillContour = vec3(0.24, 0.24, 0.27);
+    color = mix(color, pillContour, edgeLine * 0.55);
   } else {
     color += vec3(edgeLine * uSpecular * 0.34);
     color += rainbow * (edgeLine * 0.28 * uSpecular);
@@ -168,7 +165,7 @@ export const Glass: React.FC<GlassProps> = ({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const margin = noShadow ? 30 : 20;
+    const margin = 26;
 
     let baseW = container.clientWidth || 1;
     let baseH = container.clientHeight || 1;
@@ -205,7 +202,7 @@ export const Glass: React.FC<GlassProps> = ({
       uGlassSize: { value: initialSize },
       uRadius: { value: radius },
       uThickness: { value: isPill ? 22.0 : 24.0 },
-      uBezel: { value: isPill ? 18.0 : 20.0 },
+      uBezel: { value: isPill ? 17.0 : 20.0 },
       uIOR: { value: isPill ? 2.35 : 2.70 },
       uBlur: { value: isPill ? 1.0 : 2.0 },
       uSpecular: { value: 0.52 },
@@ -271,7 +268,7 @@ export const Glass: React.FC<GlassProps> = ({
     };
   }, [radius, noShadow, isPill, centerRef, sizeRef]);
 
-  const margin = noShadow ? 30 : 20;
+  const margin = 26;
 
   return (
     <div
