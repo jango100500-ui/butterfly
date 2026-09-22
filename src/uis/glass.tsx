@@ -39,27 +39,44 @@ float surfaceHeight(float t) {
 }
 
 vec3 sampleBackground(vec2 px) {
-  vec3 bg = vec3(0.9608, 0.9608, 0.9686);
+  vec3 screenBg = vec3(0.9608, 0.9608, 0.9686);
 
   if (uIsPill > 0.5) {
-    vec2 houseDelta = px - vec2(38.0, 33.0);
-    if (abs(houseDelta.x) <= 12.0 && abs(houseDelta.y) <= 12.0) {
-      vec2 iconUv = clamp((houseDelta + 12.0) / 24.0, 0.0, 1.0);
-      iconUv.y = 1.0 - iconUv.y;
-      vec4 iconColor = texture2D(uHouseTex, iconUv);
-      bg = mix(bg, vec3(0.0), iconColor.a);
+    vec2 barCenter = vec2(76.0, 33.0);
+    vec2 barHalfSize = vec2(76.0, 33.0);
+    float barSd = sdRoundedRect(px - barCenter, barHalfSize, 32.0);
+
+    vec3 color;
+    if (barSd <= 0.0) {
+      color = vec3(0.99, 0.99, 1.0);
+
+      if (barSd >= -1.6) {
+        color = vec3(1.0);
+      }
+
+      vec2 houseDelta = px - vec2(38.0, 33.0);
+      if (abs(houseDelta.x) <= 12.0 && abs(houseDelta.y) <= 12.0) {
+        vec2 iconUv = clamp((houseDelta + 12.0) / 24.0, 0.0, 1.0);
+        iconUv.y = 1.0 - iconUv.y;
+        vec4 iconColor = texture2D(uHouseTex, iconUv);
+        color = mix(color, vec3(0.0), iconColor.a);
+      }
+
+      float profileDist = length(px - vec2(114.0, 33.0));
+      if (profileDist <= 12.0) {
+        color = vec3(0.898, 0.898, 0.918);
+        if (profileDist >= 11.0) {
+          color = mix(color, vec3(0.0), 0.08);
+        }
+      }
+    } else {
+      color = screenBg;
     }
 
-    float profileDist = length(px - vec2(114.0, 33.0));
-    if (profileDist <= 12.0) {
-      bg = vec3(0.898, 0.898, 0.918);
-      if (profileDist >= 11.0) {
-        bg = mix(bg, vec3(0.0), 0.08);
-      }
-    }
+    return color;
   }
 
-  return bg;
+  return screenBg;
 }
 
 void main() {
@@ -156,7 +173,7 @@ export const Glass: React.FC<GlassProps> = ({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const margin = noShadow ? 0 : 20;
+    const margin = noShadow ? 30 : 20;
 
     let baseW = container.clientWidth || 1;
     let baseH = container.clientHeight || 1;
@@ -259,7 +276,7 @@ export const Glass: React.FC<GlassProps> = ({
     };
   }, [radius, noShadow, isPill, centerRef, sizeRef]);
 
-  const margin = noShadow ? 0 : 20;
+  const margin = noShadow ? 30 : 20;
 
   return (
     <div
