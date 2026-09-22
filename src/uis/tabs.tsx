@@ -121,7 +121,7 @@ export const Tabs: React.FC = () => {
 
   const tabBarRef = useRef<HTMLDivElement>(null);
   const pillCenterRef = useRef({ x: 38, y: 33 });
-  const pillSizeRef = useRef({ w: 70, h: 58 });
+  const pillSizeRef = useRef({ w: 74, h: 58 });
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const lensOverlayRef = useRef<HTMLDivElement>(null);
@@ -210,7 +210,7 @@ export const Tabs: React.FC = () => {
         if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '1';
 
         state.current.tsy = 1.38;
-        state.current.tsx = 1.0;
+        state.current.tsx = 1.08;
       }, 160);
     }
   };
@@ -241,9 +241,9 @@ export const Tabs: React.FC = () => {
     state.current.tx = targetX;
 
     const speed = Math.min(15, Math.abs(dx));
-    const stretch = (speed / 15) * 0.16;
+    const stretch = (speed / 15) * 0.14;
     state.current.tsy = 1.38 - stretch;
-    state.current.tsx = 1.0;
+    state.current.tsx = 1.08;
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -289,7 +289,7 @@ export const Tabs: React.FC = () => {
             if (lens) lens.style.opacity = '1';
 
             s.tsy = 1 + (0.38 * s.intensity);
-            s.tsx = 1.0;
+            s.tsx = 1.06;
           } else if (dist <= 12 && dist > 0.5) {
             slider.style.opacity = '1';
             if (lens) lens.style.opacity = '0';
