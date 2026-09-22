@@ -26,6 +26,8 @@ uniform float uRimGlow;
 uniform float uTint;
 uniform float uShadow;
 uniform float uIsPill;
+uniform vec2 uBulgePos;
+uniform float uBulgeActive;
 uniform sampler2D uHouseTex;
 
 float sdRoundedRect(vec2 p, vec2 halfSize, float r) {
@@ -66,6 +68,12 @@ void main() {
   vec2 screenPx = vec2(vUv.x, 1.0 - vUv.y) * uResolution;
   vec2 p = screenPx - uGlassCenter;
   vec2 halfSize = uGlassSize * 0.5;
+
+  if (uIsPill < 0.5 && uBulgeActive > 0.001) {
+    float distToPill = abs(screenPx.x - uBulgePos.x);
+    float bulge = exp(-distToPill * distToPill / 1400.0) * 7.5 * uBulgeActive;
+    halfSize.y += bulge;
+  }
 
   float safeRadius = min(uRadius, min(halfSize.x, halfSize.y) - 1.0);
   safeRadius = max(safeRadius, 0.0);
@@ -125,7 +133,7 @@ void main() {
 
   float angle = atan(grad.y, grad.x) * 1.4;
   vec3 rainbow = 0.5 + 0.5 * cos(angle + vec3(0.0, 2.05, 4.1));
-  float rainbowStrength = (specHighlight * 0.55 + innerRim * 0.35) * uSpecular;
+  float rainbowStrength = (specHighlight * 0.65 + innerRim * 0.4) * uSpecular;
   color += rainbow * rainbowStrength;
 
   float edgeLine = 1.0 - smoothstep(0.0, 1.35, distFromEdge);
@@ -134,7 +142,7 @@ void main() {
     color = mix(color, grayContour, edgeLine * 0.36);
   } else {
     color += vec3(edgeLine * uSpecular * 0.34);
-    color += rainbow * (edgeLine * 0.28 * uSpecular);
+    color += rainbow * (edgeLine * 0.32 * uSpecular);
   }
 
   color = mix(color, vec3(1.0), uTint);
@@ -150,6 +158,8 @@ interface GlassProps {
   isPill?: boolean;
   centerRef?: React.MutableRefObject<{ x: number; y: number }>;
   sizeRef?: React.MutableRefObject<{ w: number; h: number }>;
+  bulgePosRef?: React.MutableRefObject<{ x: number; y: number }>;
+  bulgeActiveRef?: React.MutableRefObject<number>;
 }
 
 export const Glass: React.FC<GlassProps> = ({
@@ -158,6 +168,8 @@ export const Glass: React.FC<GlassProps> = ({
   isPill = false,
   centerRef,
   sizeRef,
+  bulgePosRef,
+  bulgeActiveRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -167,7 +179,7 @@ export const Glass: React.FC<GlassProps> = ({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const margin = noShadow ? 0 : 20;
+    const margin = 40;
 
     let baseW = container.clientWidth || 1;
     let baseH = container.clientHeight || 1;
@@ -203,15 +215,17 @@ export const Glass: React.FC<GlassProps> = ({
       uGlassCenter: { value: initialCenter },
       uGlassSize: { value: initialSize },
       uRadius: { value: radius },
-      uThickness: { value: isPill ? 22.0 : 24.0 },
-      uBezel: { value: isPill ? 17.0 : 20.0 },
-      uIOR: { value: isPill ? 2.35 : 2.70 },
+      uThickness: { value: isPill ? 24.0 : 24.0 },
+      uBezel: { value: isPill ? 18.0 : 20.0 },
+      uIOR: { value: isPill ? 2.40 : 2.70 },
       uBlur: { value: isPill ? 1.0 : 2.0 },
       uSpecular: { value: 0.52 },
       uRimGlow: { value: 0.03 },
       uTint: { value: 0.07 },
       uShadow: { value: noShadow ? 0.0 : 0.08 },
       uIsPill: { value: isPill ? 1.0 : 0.0 },
+      uBulgePos: { value: new THREE.Vector2(0, 0) },
+      uBulgeActive: { value: 0.0 },
       uHouseTex: { value: houseTexture },
     };
 
@@ -254,6 +268,16 @@ export const Glass: React.FC<GlassProps> = ({
         } else {
           uniforms.uGlassSize.value.set(baseW, baseH);
         }
+
+        if (bulgePosRef?.current) {
+          uniforms.uBulgePos.value.set(
+            bulgePosRef.current.x + margin,
+            bulgePosRef.current.y + margin
+          );
+        }
+        if (bulgeActiveRef) {
+          uniforms.uBulgeActive.value = bulgeActiveRef.current;
+        }
       }
 
       renderer.render(scene, camera);
@@ -268,9 +292,9 @@ export const Glass: React.FC<GlassProps> = ({
       material.dispose();
       houseTexture.dispose();
     };
-  }, [radius, noShadow, isPill, centerRef, sizeRef]);
+  }, [radius, noShadow, isPill, centerRef, sizeRef, bulgePosRef, bulgeActiveRef]);
 
-  const margin = noShadow ? 0 : 20;
+  const margin = 40;
 
   return (
     <div
