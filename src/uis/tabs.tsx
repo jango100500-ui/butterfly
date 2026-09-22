@@ -29,16 +29,14 @@ const styles = {
     height: '66px',
     background: 'transparent',
     touchAction: 'none' as const,
-    overflow: 'visible' as const,
   },
   tabBarBg: {
     position: 'absolute' as const,
     inset: 0,
     borderRadius: 'inherit',
-    background: 'rgba(255, 255, 255, 0.35)',
+    background: 'rgba(255, 255, 255, 0.4)',
     border: '1px solid rgba(255, 255, 255, 0.8)',
     pointerEvents: 'none' as const,
-    transition: 'transform 0.16s ease-out',
   },
   tabItem: {
     position: 'relative' as const,
@@ -70,12 +68,13 @@ const styles = {
   },
   lensOverlay: {
     position: 'absolute' as const,
-    inset: 0,
-    borderRadius: '33px',
+    top: '-16px',
+    bottom: '-16px',
+    left: '0',
+    right: '0',
     zIndex: 3,
     pointerEvents: 'none' as const,
     opacity: 0,
-    overflow: 'visible' as const,
   },
   icon: {
     width: '24px',
@@ -113,7 +112,7 @@ const styles = {
     position: 'absolute' as const,
     inset: 0,
     borderRadius: 'inherit',
-    background: 'rgba(255, 255, 255, 0.35)',
+    background: 'rgba(255, 255, 255, 0.4)',
     border: '1px solid rgba(255, 255, 255, 0.8)',
     pointerEvents: 'none' as const,
   }
@@ -123,9 +122,8 @@ export const Tabs: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const tabBarRef = useRef<HTMLDivElement>(null);
-  const pillCenterRef = useRef({ x: 38, y: 33 });
-  const pillSizeRef = useRef({ w: 70, h: 58 });
-  const bulgeActiveRef = useRef(0.0);
+  const pillCenterRef = useRef({ x: 38, y: 49 });
+  const pillSizeRef = useRef({ w: 84, h: 88 });
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const lensOverlayRef = useRef<HTMLDivElement>(null);
@@ -177,10 +175,9 @@ export const Tabs: React.FC = () => {
       sliderRef.current.style.opacity = '1';
       if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '0';
       pillCenterRef.current.x = state.current.x + state.current.w / 2;
-      pillCenterRef.current.y = 33;
-      pillSizeRef.current.w = state.current.w;
-      pillSizeRef.current.h = 58;
-      bulgeActiveRef.current = 0.0;
+      pillCenterRef.current.y = 49;
+      pillSizeRef.current.w = 84;
+      pillSizeRef.current.h = 88;
     } else {
       state.current.intensity = diff > 1 ? 1 : 0.65;
       state.current.isMoving = true;
@@ -214,7 +211,7 @@ export const Tabs: React.FC = () => {
         if (sliderRef.current) sliderRef.current.style.opacity = '0';
         if (lensOverlayRef.current) lensOverlayRef.current.style.opacity = '1';
 
-        state.current.tsy = 1.52;
+        state.current.tsy = 1.0;
         state.current.tsx = 1.0;
       }, 160);
     }
@@ -239,16 +236,10 @@ export const Tabs: React.FC = () => {
     if (!rect) return;
 
     const touchX = e.clientX - rect.left;
-    const dx = touchX - lastTouchXRef.current;
     lastTouchXRef.current = touchX;
 
     const targetX = Math.max(4, Math.min(148 - state.current.w, touchX - state.current.w / 2));
     state.current.tx = targetX;
-
-    const speed = Math.min(15, Math.abs(dx));
-    const stretch = (speed / 15) * 0.16;
-    state.current.tsy = 1.52 - stretch;
-    state.current.tsx = 1.0;
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -292,31 +283,16 @@ export const Tabs: React.FC = () => {
           if (dist > 12) {
             slider.style.opacity = '0';
             if (lens) lens.style.opacity = '1';
-
-            s.tsy = 1 + (0.52 * s.intensity);
-            s.tsx = 1.0;
-            bulgeActiveRef.current = Math.min(1.0, bulgeActiveRef.current + 0.12);
           } else if (dist <= 12 && dist > 0.5) {
             slider.style.opacity = '1';
             if (lens) lens.style.opacity = '0';
-
-            s.tsy = 1 - (0.05 * s.intensity);
-            s.tsx = 1.0;
-            bulgeActiveRef.current = Math.max(0.0, bulgeActiveRef.current - 0.12);
           } else {
-            s.tsx = 1.0;
-            s.tsy = 1.0;
             if (vel < 0.3 && Math.abs(s.vsx) < 0.3) {
               s.isMoving = false;
               slider.style.opacity = '1';
               if (lens) lens.style.opacity = '0';
-              bulgeActiveRef.current = 0.0;
             }
           }
-        } else if (isDraggingRef.current) {
-          bulgeActiveRef.current = Math.min(1.0, bulgeActiveRef.current + 0.12);
-        } else {
-          bulgeActiveRef.current = Math.max(0.0, bulgeActiveRef.current - 0.12);
         }
 
         [s.x, s.vx] = spring(s.x, s.tx, s.vx, PHYSICS.pos);
@@ -329,9 +305,9 @@ export const Tabs: React.FC = () => {
         slider.style.transform = `scale(${s.sx}, ${s.sy})`;
 
         pillCenterRef.current.x = s.x + s.w / 2;
-        pillCenterRef.current.y = 33;
-        pillSizeRef.current.w = s.w * s.sx;
-        pillSizeRef.current.h = 58 * s.sy;
+        pillCenterRef.current.y = 49;
+        pillSizeRef.current.w = 84;
+        pillSizeRef.current.h = 88;
       }
 
       rafId = requestAnimationFrame(update);
@@ -351,18 +327,14 @@ export const Tabs: React.FC = () => {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <Glass
-          radius={33}
-          bulgePosRef={pillCenterRef}
-          bulgeActiveRef={bulgeActiveRef}
-        />
+        <Glass radius={33} />
         <div style={styles.tabBarBg} />
 
         <div ref={sliderRef} style={styles.slider} />
 
         <div ref={lensOverlayRef} style={styles.lensOverlay}>
           <Glass
-            radius={27}
+            radius={42}
             noShadow
             isPill
             centerRef={pillCenterRef}
